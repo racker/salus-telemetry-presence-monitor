@@ -8,7 +8,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>presence_monitor</name>
+	<name>salus-telemetry-presence-monitor</name>
 	<description>Generate presence metrics for envoys</description>
 
 	<parent>
@@ -64,7 +64,21 @@
                         <artifactId>salus-common</artifactId>
                         <version>0.1.0-SNAPSHOT</version>
                 </dependency>
-
+                <dependency>
+                        <groupId>com.rackspace.salus</groupId>
+                        <artifactId>salus-telemetry-model</artifactId>
+                        <version>0.1.0-SNAPSHOT</version>
+                </dependency>
+                <dependency>
+                        <groupId>com.rackspace.salus</groupId>
+                        <artifactId>salus-telemetry-model</artifactId>
+                        <version>0.1.0-SNAPSHOT</version>
+                </dependency>
+                <dependency>
+                        <groupId>com.rackspace.salus</groupId>
+                        <artifactId>salus-telemetry-etcd-adapter</artifactId>
+                        <version>0.1.0-SNAPSHOT</version>
+                </dependency>
 	</dependencies>
 
 	<build>

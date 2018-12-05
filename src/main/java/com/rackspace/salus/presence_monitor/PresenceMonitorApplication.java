@@ -59,7 +59,7 @@ PresenceMonitorApplication pm = new PresenceMonitorApplication();
 		String[] beans = appContext.getBeanDefinitionNames();
 		Arrays.sort(beans);
 		for (String bean : beans) {
-			System.out.println(bean);
+//			System.out.println(bean);
 		}
 
 }
