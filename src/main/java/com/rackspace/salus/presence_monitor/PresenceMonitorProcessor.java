@@ -1,6 +1,7 @@
 package com.rackspace.salus.presence_monitor;
 
 import com.coreos.jetcd.Client;
+import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.kv.GetResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -110,8 +111,18 @@ public class PresenceMonitorProcessor implements WorkProcessor {
               newEntry.getRangeMax()).join();
       activeResponse.getKvs().stream().forEach(activeKv -> {
         String activeKey = activeKv.getKey().toStringUtf8().substring(14);
-        newEntry.getExistanceTable().get(activeKey).setActive(true);
+        PartitionEntry.ExistanceEntry entry = newEntry.getExistanceTable().get(activeKey);
+        if (entry == null) {
+          log.warn("Entry is null for key {}", activeKey);
+          return;
+        } else {
+          entry.setActive(true);
+        }
       });
+      newEntry.setExistsWatch(envoyNodeManagement.getWatchOverRange(Keys.FMT_NODES_EXPECTED,
+              newEntry.getRangeMin(), newEntry.getRangeMax(), existResponse.getHeader().getRevision()));
+      newEntry.setActiveWatch(envoyNodeManagement.getWatchOverRange(Keys.FMT_NODES_ACTIVE,
+              newEntry.getRangeMin(), newEntry.getRangeMax(), activeResponse.getHeader().getRevision()));
 
     });
 

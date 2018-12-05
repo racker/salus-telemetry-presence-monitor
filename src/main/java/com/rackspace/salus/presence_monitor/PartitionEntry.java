@@ -19,7 +19,7 @@ public class PartitionEntry {
     }
     String rangeMin;
     String rangeMax;
-    Watch existsWatch;
-    Watch activeWatch;
+    Watch.Watcher existsWatch;
+    Watch.Watcher activeWatch;
     ConcurrentHashMap<String, ExistanceEntry> existanceTable;
 }
