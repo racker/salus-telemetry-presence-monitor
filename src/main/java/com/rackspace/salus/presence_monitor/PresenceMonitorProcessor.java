@@ -40,6 +40,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     this.hashing = hashing;
     this.envoyNodeManagement = envoyNodeManagement;
 
+    if (false) {
     Map<String, String> envoyLabels = new HashMap<>();
     envoyLabels.put("os", "LINUX");
     envoyLabels.put("arch", "X86_64");
@@ -73,13 +74,13 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
 
 
-    //envoyNodeManagement.registerNode(tenantId, envoyId, leaseId, identifier, envoyLabels, address).join();
-
+    envoyNodeManagement.registerNode(tenantId, envoyId, leaseId, identifier, envoyLabels, address).join();
+}
   }
   @Override
   public void start(String id, String content)
   {
-    log.info("GBJ4 Starting work on id={}, content={}", id, content);
+    log.info("GBJ5 Starting work on id={}, content={}", id, content);
     PartitionEntry newEntry = new PartitionEntry();
     JsonNode workContent;
     try {
