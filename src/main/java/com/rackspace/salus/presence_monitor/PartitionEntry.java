@@ -9,6 +9,7 @@ import com.rackspace.salus.telemetry.model.NodeInfo;
 
 @Data
 public class PartitionEntry {
+    @Data
     public static class ExistanceEntry {
         Boolean active;
         NodeInfo nodeInfo;

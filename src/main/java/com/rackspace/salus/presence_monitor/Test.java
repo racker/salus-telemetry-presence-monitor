@@ -8,6 +8,7 @@ import com.rackspace.salus.common.workpart.config.WorkerProperties;
 import com.rackspace.salus.common.workpart.services.DefaultWorkProcessor;
 import com.rackspace.salus.common.workpart.services.WorkAllocator;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
+import com.rackspace.salus.telemetry.etcd.services.EnvoyNodeManagement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -19,7 +20,7 @@ import com.coreos.jetcd.Client;
 
 
 @Configuration
-@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class, ObjectMapper.class, KeyHashing.class})
+@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class, ObjectMapper.class, KeyHashing.class, EnvoyNodeManagement.class})
 public class Test {
     
     @Autowired
