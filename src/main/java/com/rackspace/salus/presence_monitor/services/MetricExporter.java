@@ -26,6 +26,7 @@ public class MetricExporter extends TimerTask {
     public void run() {
         long startTime, elapsedTime;
         while (true) {
+            log.info("Starting exporter iteration.");
             startTime = System.currentTimeMillis();
             partitionTable.entrySet().stream().forEach(partitionEntry -> {
                 partitionEntry.getValue().getExistanceTable().forEach((id, existanceEntry) -> {

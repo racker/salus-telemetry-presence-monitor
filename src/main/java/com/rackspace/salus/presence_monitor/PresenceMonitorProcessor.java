@@ -53,7 +53,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     this.taskScheduler = taskScheduler;
     this.metricExporter = metricExporter;
     this.metricExporter.setPartitionTable(partitionTable);
-    this.metricExporter.run();
+    taskScheduler.submit(metricExporter);
 
     if (false) {
     Map<String, String> envoyLabels = new HashMap<>();

@@ -72,7 +72,9 @@ public class MetricRouter {
         NodeInfo nodeInfo = existanceEntry.getNodeInfo();
         String tenantId = nodeInfo.getTenantId();
         String envoyId = nodeInfo.getEnvoyId();
-        Map<String, String> envoyLabels = null;
+        Map<String, String> envoyLabels = new HashMap<>();
+        //gbj fix
+        envoyLabels.put("gbj", "fix");
 
         if (false) {
             TelemetryEdge.EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
@@ -94,7 +96,9 @@ public class MetricRouter {
             .setAccountType(AccountType.RCN)
             .setAccount(nodeInfo.getTenantId())
             .setTimestamp(universalTimestampFormatter.format(timestamp))
+                // GBJ fix
             .setDeviceMetadata(envoyLabels)
+                .setCollectionMetadata(envoyLabels)
             .setMonitoringSystem(MonitoringSystem.RMII)
             .setSystemMetadata(Collections.singletonMap("envoyId", nodeInfo.getEnvoyId()))
             .setCollectionTarget(id)
