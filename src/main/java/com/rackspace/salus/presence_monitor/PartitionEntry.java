@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import com.rackspace.salus.telemetry.model.NodeInfo;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -18,7 +18,7 @@ public class PartitionEntry {
     @Data
     public static class ExistanceEntry {
         Boolean active;
-        NodeInfo nodeInfo;
+        ResourceInfo resourceInfo;
     }
     @Data
     @Slf4j

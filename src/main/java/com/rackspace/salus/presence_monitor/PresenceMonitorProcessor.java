@@ -1,3 +1,4 @@
+
 package com.rackspace.salus.presence_monitor;
 
 import com.coreos.jetcd.Client;
@@ -9,9 +10,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.presence_monitor.services.MetricExporter;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
-import com.rackspace.salus.telemetry.etcd.services.EnvoyNodeManagement;
+import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.NodeInfo;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
 import com.rackspace.salus.common.workpart.WorkProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,18 +39,18 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   private ObjectMapper objectMapper;
   private Client etcd;
   private KeyHashing hashing;
-  private EnvoyNodeManagement envoyNodeManagement;
+  private EnvoyResourceManagement envoyResourceManagement;
   private ThreadPoolTaskScheduler taskScheduler;
   private MetricExporter metricExporter;
   @Autowired
   PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper, KeyHashing hashing,
-                           EnvoyNodeManagement envoyNodeManagement, ThreadPoolTaskScheduler taskScheduler,
+                           EnvoyResourceManagement envoyResourceManagement, ThreadPoolTaskScheduler taskScheduler,
                            MetricExporter metricExporter) {
     partitionTable = new ConcurrentHashMap<>();
     this.objectMapper = objectMapper;
     this.etcd = etcd;
     this.hashing = hashing;
-    this.envoyNodeManagement = envoyNodeManagement;
+    this.envoyResourceManagement = envoyResourceManagement;
     this.taskScheduler = taskScheduler;
     this.metricExporter = metricExporter;
     this.metricExporter.setPartitionTable(partitionTable);
@@ -65,7 +66,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     String identifier = "os";
     String identifierValue = envoyLabels.get(identifier);
     long leaseId = 50;
-    SocketAddress address;
+    InetSocketAddress address;
     try {
       address = new InetSocketAddress(InetAddress.getLocalHost(), 1234);
     } catch (UnknownHostException e) {
@@ -73,23 +74,24 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       address = null;
     }
 
-    String nodeKey = String.format("%s:%s:%s", tenantId, identifier, identifierValue);
-    final String nodeKeyHash = hashing.hash(nodeKey);
+    String resourceKey = String.format("%s:%s:%s", tenantId, identifier, identifierValue);
+    final String resourceKeyHash = hashing.hash(resourceKey);
 
-    NodeInfo nodeInfo = new NodeInfo()
+    ResourceInfo resourceInfo = new ResourceInfo()
             .setEnvoyId(envoyId)
             .setIdentifier(identifier)
             .setIdentifierValue(identifierValue)
             .setLabels(envoyLabels)
-            .setTenantId(tenantId);
-         //   .setAddress(address);
+            .setTenantId(tenantId)
+            .setAddress(address);
 
 
 
 
 
 
-    envoyNodeManagement.registerNode(tenantId, envoyId, leaseId, identifier, envoyLabels, address).join();
+
+    envoyResourceManagement.registerResource(tenantId, envoyId, leaseId, identifier, envoyLabels, address).join();
 }
   }
   @Override
@@ -106,23 +108,23 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
     newEntry.setRangeMax(workContent.get("rangeMax").asText());
     newEntry.setRangeMin(workContent.get("rangeMin").asText());
-    GetResponse existResponse = envoyNodeManagement.getNodesInRange(Keys.FMT_NODES_EXPECTED, newEntry.getRangeMin(),
+    GetResponse existResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     existResponse.getKvs().stream().forEach(kv -> {
       String k = kv.getKey().toStringUtf8().substring(16);
-      NodeInfo nodeInfo;
+      ResourceInfo resourceInfo;
       PartitionEntry.ExistanceEntry existanceEntry = new PartitionEntry.ExistanceEntry();
       try {
-        nodeInfo = objectMapper.readValue(kv.getValue().getBytes(), NodeInfo.class);
+        resourceInfo = objectMapper.readValue(kv.getValue().getBytes(), ResourceInfo.class);
       } catch (IOException e) {
-        log.warn("Failed to parse NodeInfo", e);
+        log.warn("Failed to parse ResourceInfo", e);
         return;
       }
-      existanceEntry.setNodeInfo(nodeInfo);
+      existanceEntry.setResourceInfo(resourceInfo);
       existanceEntry.setActive(false);
       newEntry.getExistanceTable().put(k,existanceEntry);
       });
-    GetResponse activeResponse = envoyNodeManagement.getNodesInRange(Keys.FMT_NODES_ACTIVE, newEntry.getRangeMin(),
+    GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     activeResponse.getKvs().stream().forEach(activeKv -> {
       String activeKey = activeKv.getKey().toStringUtf8().substring(14);
@@ -135,12 +137,12 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       }
     });
 
-    Watch.Watcher existsWatch = envoyNodeManagement.getWatchOverRange(Keys.FMT_NODES_EXPECTED,
+    Watch.Watcher existsWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_EXPECTED,
               newEntry.getRangeMin(), newEntry.getRangeMax(), existResponse.getHeader().getRevision());
     newEntry.setExistsWatch(new PartitionEntry.PartitionWatcher("exists-" + newEntry.getRangeMin(),
                taskScheduler, existsWatch, newEntry, existanceWatchResponseConsumer));
     newEntry.getExistsWatch().start();
-    Watch.Watcher activeWatch = envoyNodeManagement.getWatchOverRange(Keys.FMT_NODES_ACTIVE,
+    Watch.Watcher activeWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_ACTIVE,
             newEntry.getRangeMin(), newEntry.getRangeMax(), activeResponse.getHeader().getRevision());
     newEntry.setActiveWatch(new PartitionEntry.PartitionWatcher("active-" + newEntry.getRangeMin(),
             taskScheduler, activeWatch, newEntry, activeWatchResponseConsumer));
@@ -153,18 +155,18 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   BiConsumer<WatchResponse, PartitionEntry> existanceWatchResponseConsumer = (watchResponse, partitionEntry) -> {
     watchResponse.getEvents().stream().forEach(event -> {
       String eventKey;
-      NodeInfo nodeInfo;
+      ResourceInfo resourceInfo;
       PartitionEntry.ExistanceEntry watchEntry;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
         eventKey = event.getKeyValue().getKey().toStringUtf8().substring(16);
         watchEntry = new PartitionEntry.ExistanceEntry();
         try {
-          nodeInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), NodeInfo.class);
+          resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
         } catch (IOException e) {
-          log.warn("Failed to parse NodeInfo {}", e);
+          log.warn("Failed to parse ResourceInfo {}", e);
           return;
         }
-        watchEntry.setNodeInfo(nodeInfo);
+        watchEntry.setResourceInfo(resourceInfo);
         watchEntry.setActive(false);
         partitionEntry.getExistanceTable().put(eventKey, watchEntry);
       } else {

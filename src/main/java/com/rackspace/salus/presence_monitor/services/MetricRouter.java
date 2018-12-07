@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.rackspace.salus.services.TelemetryEdge;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.NodeInfo;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.io.EncoderFactory;
@@ -45,8 +45,6 @@ import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import javax.xml.soap.Node;
 
 import static com.rackspace.salus.telemetry.etcd.EtcdUtils.buildKey;
 
@@ -69,13 +67,13 @@ public class MetricRouter {
     }
 
     public void route(String id, PartitionEntry.ExistanceEntry existanceEntry) {
-        NodeInfo nodeInfo = existanceEntry.getNodeInfo();
-        String tenantId = nodeInfo.getTenantId();
-        String envoyId = nodeInfo.getEnvoyId();
+        ResourceInfo resourceInfo = existanceEntry.getResourceInfo();
+        String tenantId = resourceInfo.getTenantId();
+        String envoyId = resourceInfo.getEnvoyId();
         Map<String, String> envoyLabels = new HashMap<>();
         //gbj fix
         envoyLabels.put("gbj", "fix");
-
+        log.info("gbj routing {}", id);
         if (false) {
             TelemetryEdge.EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
             if (envoySummary == null) {
@@ -94,13 +92,13 @@ public class MetricRouter {
 
         final ExternalMetric externalMetric = ExternalMetric.newBuilder()
             .setAccountType(AccountType.RCN)
-            .setAccount(nodeInfo.getTenantId())
+            .setAccount(resourceInfo.getTenantId())
             .setTimestamp(universalTimestampFormatter.format(timestamp))
                 // GBJ fix
             .setDeviceMetadata(envoyLabels)
                 .setCollectionMetadata(envoyLabels)
             .setMonitoringSystem(MonitoringSystem.RMII)
-            .setSystemMetadata(Collections.singletonMap("envoyId", nodeInfo.getEnvoyId()))
+            .setSystemMetadata(Collections.singletonMap("envoyId", resourceInfo.getEnvoyId()))
             .setCollectionTarget(id)
             .setCollectionName("presence_monitor")
             .setFvalues(Collections.emptyMap())
@@ -121,10 +119,10 @@ public class MetricRouter {
             datumWriter.write(externalMetric, jsonEncoder);
             jsonEncoder.flush();
 
-            kafkaEgress.send(nodeInfo.getTenantId(), KafkaMessageType.METRIC, out.toString(StandardCharsets.UTF_8.name()));
+            kafkaEgress.send(resourceInfo.getTenantId(), KafkaMessageType.METRIC, out.toString(StandardCharsets.UTF_8.name()));
 
         } catch (IOException e) {
-            log.warn("Failed to Avro encode avroMetric={} original={}", externalMetric, nodeInfo, e);
+            log.warn("Failed to Avro encode avroMetric={} original={}", externalMetric, resourceInfo, e);
             throw new RuntimeException("Failed to Avro encode metric", e);
         }
     }
