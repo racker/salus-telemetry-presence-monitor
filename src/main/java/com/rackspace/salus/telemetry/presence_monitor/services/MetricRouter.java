@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
+import com.rackspace.salus.telemetry.etcd.types.EnvoySummary;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import java.io.ByteArrayOutputStream;
@@ -35,7 +36,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import com.rackspace.salus.services.TelemetryEdge;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -71,19 +71,15 @@ public class MetricRouter {
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
         Map<String, String> envoyLabels = new HashMap<>();
-        //gbj fix
-        envoyLabels.put("gbj", "fix");
-        log.info("gbj routing {}", id);
-        if (false) {
-            TelemetryEdge.EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
-            if (envoySummary == null) {
-                log.warn("envoySummary not found for {}, {]", tenantId, envoyId);
-                return;
-            }
-            envoyLabels = envoySummary.getLabelsMap();
-            if (envoyLabels == null) {
-                log.warn("labels not found for {}, {]", tenantId, envoyId);
-            }
+        log.info("routing {}", id);
+        EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
+        if (envoySummary == null) {
+            log.warn("envoySummary not found for {}, {]", tenantId, envoyId);
+            return;
+        }
+        envoyLabels = envoySummary.getLabels();
+        if (envoyLabels == null) {
+            log.warn("labels not found for {}, {]", tenantId, envoyId);
         }
         Map<String, Long> iMap = new HashMap<String, Long>();
         iMap.put("GBJ_GET_NAME", expectedEntry.getActive() ? 1L : 0L);
@@ -94,19 +90,15 @@ public class MetricRouter {
             .setAccountType(AccountType.RCN)
             .setAccount(resourceInfo.getTenantId())
             .setTimestamp(universalTimestampFormatter.format(timestamp))
-                // GBJ fix
             .setDeviceMetadata(envoyLabels)
-                .setCollectionMetadata(envoyLabels)
+            .setCollectionMetadata(envoyLabels)
             .setMonitoringSystem(MonitoringSystem.RMII)
             .setSystemMetadata(Collections.singletonMap("envoyId", resourceInfo.getEnvoyId()))
             .setCollectionTarget(id)
             .setCollectionName("presence_monitor")
             .setFvalues(Collections.emptyMap())
             .setSvalues(Collections.emptyMap())
-
-
-                .setIvalues(iMap)
-
+            .setIvalues(iMap)
             .setUnits(Collections.emptyMap())
             .build();
 
@@ -127,7 +119,7 @@ public class MetricRouter {
         }
     }
 
-    private CompletableFuture<TelemetryEdge.EnvoySummary> retrieveEnvoySummaryById(String tenantId, String envoyInstanceId) {
+    private CompletableFuture<EnvoySummary> retrieveEnvoySummaryById(String tenantId, String envoyInstanceId) {
         return etcd.getKVClient().get(
                 buildKey(Keys.FMT_ENVOYS_BY_ID,
                         tenantId, envoyInstanceId))
@@ -138,8 +130,8 @@ public class MetricRouter {
                         return null;
                     } else {
                         try {
-                            TelemetryEdge.EnvoySummary envoySummary = objectMapper.readValue(getResponse.getKvs().get(0)
-                                    .getValue().getBytes(), TelemetryEdge.EnvoySummary.class);
+                            EnvoySummary envoySummary = objectMapper.readValue(getResponse.getKvs().get(0)
+                                    .getValue().getBytes(), EnvoySummary.class);
                             return envoySummary;
                         } catch (IOException e) {
                             log.warn("Unable to read envoy data for {}, {}", tenantId, envoyInstanceId);
