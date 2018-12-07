@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
-import com.rackspace.salus.presence_monitor.PartitionEntry;
+import com.rackspace.salus.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.presence_monitor.types.KafkaMessageType;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

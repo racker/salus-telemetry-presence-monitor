@@ -1,5 +1,5 @@
 
-package com.rackspace.salus.presence_monitor;
+package com.rackspace.salus.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.Watch;
@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.presence_monitor.services.MetricExporter;
+import com.rackspace.salus.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
@@ -18,19 +19,15 @@ import com.rackspace.salus.common.workpart.WorkProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
-import sun.jvm.hotspot.runtime.ObjectMonitor;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.security.Key;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 @Component
 @Slf4j

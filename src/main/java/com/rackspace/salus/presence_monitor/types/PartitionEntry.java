@@ -1,4 +1,4 @@
-package com.rackspace.salus.presence_monitor;
+package com.rackspace.salus.presence_monitor.types;
 
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.ClosedClientException;
@@ -7,7 +7,6 @@ import lombok.Data;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,7 @@ public class PartitionEntry {
         final Watch.Watcher watcher;
         final PartitionEntry partitionEntry;
         final BiConsumer<WatchResponse, PartitionEntry> watchResponseConsumer;
-        void start() {
+        public void start() {
             running = true;
             taskScheduler.submit(() -> {
                 log.info("Watching {}", name);
@@ -53,14 +52,14 @@ public class PartitionEntry {
             });
 
         }
-        void stop() {
+        public void stop() {
             if (running) {
                 running = false;
                 watcher.close();
             }
         }
     }
-    PartitionEntry() {
+    public PartitionEntry() {
         existanceTable = new ConcurrentHashMap<>();
     }
     String rangeMin;
