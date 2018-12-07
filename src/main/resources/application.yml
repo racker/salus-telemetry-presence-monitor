@@ -8,3 +8,6 @@ presence-monitor:
     5
 etcd:
   url: http://localhost:2479
+worker:
+  prefix:
+    /workAllocations/PRESENCE_MONITOR

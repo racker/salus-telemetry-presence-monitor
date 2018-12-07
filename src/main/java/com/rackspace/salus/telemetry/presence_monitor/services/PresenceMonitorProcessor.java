@@ -102,8 +102,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       log.error("Invalid content {}.  Skipping.", content);
       return;
     }
-    newEntry.setRangeMax(workContent.get("rangeMax").asText());
-    newEntry.setRangeMin(workContent.get("rangeMin").asText());
+    newEntry.setRangeMax(workContent.get("end").asText());
+    newEntry.setRangeMin(workContent.get("start").asText());
     GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     expectedResponse.getKvs().stream().forEach(kv -> {
