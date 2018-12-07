@@ -7,6 +7,7 @@ import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
+import com.rackspace.salus.presence_monitor.services.MetricExporter;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyNodeManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
@@ -39,15 +40,20 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   private KeyHashing hashing;
   private EnvoyNodeManagement envoyNodeManagement;
   private ThreadPoolTaskScheduler taskScheduler;
+  private MetricExporter metricExporter;
   @Autowired
   PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper, KeyHashing hashing,
-                           EnvoyNodeManagement envoyNodeManagement, ThreadPoolTaskScheduler taskScheduler) {
+                           EnvoyNodeManagement envoyNodeManagement, ThreadPoolTaskScheduler taskScheduler,
+                           MetricExporter metricExporter) {
     partitionTable = new ConcurrentHashMap<>();
     this.objectMapper = objectMapper;
     this.etcd = etcd;
     this.hashing = hashing;
     this.envoyNodeManagement = envoyNodeManagement;
     this.taskScheduler = taskScheduler;
+    this.metricExporter = metricExporter;
+    this.metricExporter.setPartitionTable(partitionTable);
+    this.metricExporter.run();
 
     if (false) {
     Map<String, String> envoyLabels = new HashMap<>();
@@ -89,7 +95,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   @Override
   public void start(String id, String content)
   {
-    log.info("GBJ5 Starting work on id={}, content={}", id, content);
+    log.info("GBJ6 Starting work on id={}, content={}", id, content);
     PartitionEntry newEntry = new PartitionEntry();
     JsonNode workContent;
     try {
@@ -196,10 +202,18 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   @Override
   public void update(String id, String content) {
     log.info("GBJ Updating work on id={}, content={}", id, content);
+    stop(id, content);
+    start(id, content);
   }
 
   @Override
   public void stop(String id, String content) {
     log.info("GBJ Stopping work on id={}, content={}", id, content);
+    PartitionEntry entry = partitionTable.get(id);
+    if (entry != null) {
+      partitionTable.remove(id);
+      entry.getActiveWatch().stop();
+      entry.getExistsWatch().stop();
+    }
   }
 }

@@ -54,7 +54,10 @@ public class PartitionEntry {
 
         }
         void stop() {
-            running = false;
+            if (running) {
+                running = false;
+                watcher.close();
+            }
         }
     }
     PartitionEntry() {

@@ -9,6 +9,7 @@ import com.rackspace.salus.common.workpart.services.DefaultWorkProcessor;
 import com.rackspace.salus.common.workpart.services.WorkAllocator;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyNodeManagement;
+import org.apache.avro.io.EncoderFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +21,8 @@ import com.coreos.jetcd.Client;
 
 
 @Configuration
-@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class, ObjectMapper.class, KeyHashing.class, EnvoyNodeManagement.class})
+@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class, ObjectMapper.class,
+        KeyHashing.class, EnvoyNodeManagement.class, EncoderFactory.class})
 public class Test {
     
     @Autowired
@@ -39,6 +41,7 @@ public class Test {
     private PresenceMonitorProcessor presenceMonitorProcessor;
     @Bean
     public WorkAllocator getWorkAllocator() {
+          System.out.println("gbjgetwork");
         return new WorkAllocator(wp, etcd, presenceMonitorProcessor, taskScheduler);
     };
 }

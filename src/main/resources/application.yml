@@ -1,0 +1,10 @@
+presence-monitor:
+  kafka-topics:
+    LOG:
+      telemetry.logs.json
+    METRIC:
+      telemetry.metrics.json
+  exportPeriodInSeconds:
+    60
+etcd:
+  url: http://localhost:2479
