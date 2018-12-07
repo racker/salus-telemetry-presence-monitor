@@ -66,8 +66,8 @@ public class MetricRouter {
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
     }
 
-    public void route(String id, PartitionEntry.ExistanceEntry existanceEntry) {
-        ResourceInfo resourceInfo = existanceEntry.getResourceInfo();
+    public void route(String id, PartitionEntry.ExpectedEntry expectedEntry) {
+        ResourceInfo resourceInfo = expectedEntry.getResourceInfo();
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
         Map<String, String> envoyLabels = new HashMap<>();
@@ -86,7 +86,7 @@ public class MetricRouter {
             }
         }
         Map<String, Long> iMap = new HashMap<String, Long>();
-        iMap.put("GBJ_GET_NAME", existanceEntry.getActive() ? 1L : 0L);
+        iMap.put("GBJ_GET_NAME", expectedEntry.getActive() ? 1L : 0L);
 
         final Instant timestamp = Instant.ofEpochMilli(System.currentTimeMillis());
 

@@ -104,27 +104,27 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
     newEntry.setRangeMax(workContent.get("rangeMax").asText());
     newEntry.setRangeMin(workContent.get("rangeMin").asText());
-    GetResponse existResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
+    GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
-    existResponse.getKvs().stream().forEach(kv -> {
+    expectedResponse.getKvs().stream().forEach(kv -> {
       String k = kv.getKey().toStringUtf8().substring(16);
       ResourceInfo resourceInfo;
-      PartitionEntry.ExistanceEntry existanceEntry = new PartitionEntry.ExistanceEntry();
+      PartitionEntry.ExpectedEntry expectedEntry = new PartitionEntry.ExpectedEntry();
       try {
         resourceInfo = objectMapper.readValue(kv.getValue().getBytes(), ResourceInfo.class);
       } catch (IOException e) {
         log.warn("Failed to parse ResourceInfo", e);
         return;
       }
-      existanceEntry.setResourceInfo(resourceInfo);
-      existanceEntry.setActive(false);
-      newEntry.getExistanceTable().put(k,existanceEntry);
+      expectedEntry.setResourceInfo(resourceInfo);
+      expectedEntry.setActive(false);
+      newEntry.getExpectedTable().put(k, expectedEntry);
       });
     GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     activeResponse.getKvs().stream().forEach(activeKv -> {
       String activeKey = activeKv.getKey().toStringUtf8().substring(14);
-      PartitionEntry.ExistanceEntry entry = newEntry.getExistanceTable().get(activeKey);
+      PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
       if (entry == null) {
         log.warn("Entry is null for key {}", activeKey);
         return;
@@ -133,11 +133,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       }
     });
 
-    Watch.Watcher existsWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_EXPECTED,
-              newEntry.getRangeMin(), newEntry.getRangeMax(), existResponse.getHeader().getRevision());
-    newEntry.setExistsWatch(new PartitionEntry.PartitionWatcher("exists-" + newEntry.getRangeMin(),
-               taskScheduler, existsWatch, newEntry, existanceWatchResponseConsumer));
-    newEntry.getExistsWatch().start();
+    Watch.Watcher expectedWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_EXPECTED,
+              newEntry.getRangeMin(), newEntry.getRangeMax(), expectedResponse.getHeader().getRevision());
+    newEntry.setExpectedWatch(new PartitionEntry.PartitionWatcher("expected-" + newEntry.getRangeMin(),
+               taskScheduler, expectedWatch, newEntry, expectedWatchResponseConsumer));
+    newEntry.getExpectedWatch().start();
     Watch.Watcher activeWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_ACTIVE,
             newEntry.getRangeMin(), newEntry.getRangeMax(), activeResponse.getHeader().getRevision());
     newEntry.setActiveWatch(new PartitionEntry.PartitionWatcher("active-" + newEntry.getRangeMin(),
@@ -148,14 +148,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   }
 
 
-  BiConsumer<WatchResponse, PartitionEntry> existanceWatchResponseConsumer = (watchResponse, partitionEntry) -> {
+  BiConsumer<WatchResponse, PartitionEntry> expectedWatchResponseConsumer = (watchResponse, partitionEntry) -> {
     watchResponse.getEvents().stream().forEach(event -> {
       String eventKey;
       ResourceInfo resourceInfo;
-      PartitionEntry.ExistanceEntry watchEntry;
+      PartitionEntry.ExpectedEntry watchEntry;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
         eventKey = event.getKeyValue().getKey().toStringUtf8().substring(16);
-        watchEntry = new PartitionEntry.ExistanceEntry();
+        watchEntry = new PartitionEntry.ExpectedEntry();
         try {
           resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
         } catch (IOException e) {
@@ -164,13 +164,13 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         }
         watchEntry.setResourceInfo(resourceInfo);
         watchEntry.setActive(false);
-        partitionEntry.getExistanceTable().put(eventKey, watchEntry);
+        partitionEntry.getExpectedTable().put(eventKey, watchEntry);
       } else {
         eventKey = event.getPrevKV().getKey().toStringUtf8().substring(16);
-        if (partitionEntry.getExistanceTable().containsKey(eventKey)) {
-          partitionEntry.getExistanceTable().remove(eventKey);
+        if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
+          partitionEntry.getExpectedTable().remove(eventKey);
         } else {
-          log.warn("Failed to find ExistanceEntry to delete {}", eventKey);
+          log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
           return;
         }
 
@@ -188,10 +188,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       } else {
         eventKey = event.getPrevKV().getKey().toStringUtf8().substring(14);
       }
-      if (partitionEntry.getExistanceTable().containsKey(eventKey)) {
-          partitionEntry.getExistanceTable().get(eventKey).setActive(activeValue);
+      if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
+          partitionEntry.getExpectedTable().get(eventKey).setActive(activeValue);
       } else {
-          log.warn("Failed to find ExistanceEntry to update {}", eventKey);
+          log.warn("Failed to find ExpectedEntry to update {}", eventKey);
       }
 
     });
@@ -211,7 +211,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     if (entry != null) {
       partitionTable.remove(id);
       entry.getActiveWatch().stop();
-      entry.getExistsWatch().stop();
+      entry.getExpectedWatch().stop();
     }
   }
 }

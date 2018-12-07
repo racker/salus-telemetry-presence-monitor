@@ -15,7 +15,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Data
 public class PartitionEntry {
     @Data
-    public static class ExistanceEntry {
+    public static class ExpectedEntry {
         Boolean active;
         ResourceInfo resourceInfo;
     }
@@ -60,11 +60,11 @@ public class PartitionEntry {
         }
     }
     public PartitionEntry() {
-        existanceTable = new ConcurrentHashMap<>();
+        expectedTable = new ConcurrentHashMap<>();
     }
     String rangeMin;
     String rangeMax;
-    PartitionWatcher existsWatch;
+    PartitionWatcher expectedWatch;
     PartitionWatcher activeWatch;
-    ConcurrentHashMap<String, ExistanceEntry> existanceTable;
+    ConcurrentHashMap<String, ExpectedEntry> expectedTable;
 }

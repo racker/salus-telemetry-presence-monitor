@@ -29,8 +29,8 @@ public class MetricExporter extends TimerTask {
             log.info("Starting exporter iteration.");
             startTime = System.currentTimeMillis();
             partitionTable.entrySet().stream().forEach(partitionEntry -> {
-                partitionEntry.getValue().getExistanceTable().forEach((id, existanceEntry) -> {
-                    metricRouter.route(id, existanceEntry);
+                partitionEntry.getValue().getExpectedTable().forEach((id, expectedEntry) -> {
+                    metricRouter.route(id, expectedEntry);
                 });
 
             });
