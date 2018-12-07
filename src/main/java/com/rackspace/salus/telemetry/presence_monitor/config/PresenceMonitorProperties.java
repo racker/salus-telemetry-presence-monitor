@@ -16,10 +16,19 @@
  *
  */
 
-package com.rackspace.salus.presence_monitor.types;
+package com.rackspace.salus.telemetry.presence_monitor.config;
 
-public enum KafkaMessageType {
-    LOG,
-    METRIC,
-    EVENT;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+
+@ConfigurationProperties("presence-monitor")
+@Component
+@Data
+public class    PresenceMonitorProperties {
+    Map<KafkaMessageType, String> kafkaTopics;
+    int exportPeriodInSeconds;
 }

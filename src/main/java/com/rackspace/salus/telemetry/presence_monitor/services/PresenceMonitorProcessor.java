@@ -1,5 +1,5 @@
 
-package com.rackspace.salus.presence_monitor.services;
+package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.Watch;
@@ -8,8 +8,7 @@ import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
-import com.rackspace.salus.presence_monitor.services.MetricExporter;
-import com.rackspace.salus.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;

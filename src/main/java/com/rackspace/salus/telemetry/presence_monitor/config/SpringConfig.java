@@ -1,11 +1,11 @@
-package com.rackspace.salus.presence_monitor.config;
+package com.rackspace.salus.telemetry.presence_monitor.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.config.EtcdConfig;
 import com.rackspace.salus.common.workpart.config.EtcdProperties;
 import com.rackspace.salus.common.workpart.config.WorkerProperties;
 import com.rackspace.salus.common.workpart.services.WorkAllocator;
-import com.rackspace.salus.presence_monitor.services.PresenceMonitorProcessor;
+import com.rackspace.salus.telemetry.presence_monitor.services.PresenceMonitorProcessor;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import org.apache.avro.io.EncoderFactory;

@@ -1,4 +1,4 @@
-package com.rackspace.salus.presence_monitor.types;
+package com.rackspace.salus.telemetry.presence_monitor.types;
 
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.ClosedClientException;

@@ -1,4 +1,4 @@
-package com.rackspace.salus.presence_monitor;
+package com.rackspace.salus.telemetry.presence_monitor;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

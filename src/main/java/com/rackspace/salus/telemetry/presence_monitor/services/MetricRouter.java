@@ -16,15 +16,15 @@
  *
  */
 
-package com.rackspace.salus.presence_monitor.services;
+package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
-import com.rackspace.salus.presence_monitor.types.PartitionEntry;
-import com.rackspace.salus.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
