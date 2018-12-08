@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
-import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import com.rackspace.salus.common.workpart.WorkProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,70 +30,32 @@ import java.util.function.BiConsumer;
 
 @Component
 @Slf4j
+@Data
 public class PresenceMonitorProcessor implements WorkProcessor {
   private ConcurrentHashMap <String, PartitionEntry> partitionTable;
-  private ObjectMapper objectMapper;
   private Client etcd;
-  private KeyHashing hashing;
+  private ObjectMapper objectMapper;
   private EnvoyResourceManagement envoyResourceManagement;
   private ThreadPoolTaskScheduler taskScheduler;
   private MetricExporter metricExporter;
   @Autowired
-  PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper, KeyHashing hashing,
-                           EnvoyResourceManagement envoyResourceManagement, ThreadPoolTaskScheduler taskScheduler,
-                           MetricExporter metricExporter) {
+  PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
+      EnvoyResourceManagement envoyResourceManagement,
+      ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter) {
     partitionTable = new ConcurrentHashMap<>();
     this.objectMapper = objectMapper;
     this.etcd = etcd;
-    this.hashing = hashing;
     this.envoyResourceManagement = envoyResourceManagement;
     this.taskScheduler = taskScheduler;
     this.metricExporter = metricExporter;
     this.metricExporter.setPartitionTable(partitionTable);
     taskScheduler.submit(metricExporter);
-
-    if (false) {
-    Map<String, String> envoyLabels = new HashMap<>();
-    envoyLabels.put("os", "LINUX");
-    envoyLabels.put("arch", "X86_64");
-
-    String envoyId = "abcde";
-    String tenantId = "123456";
-    String identifier = "os";
-    String identifierValue = envoyLabels.get(identifier);
-    long leaseId = 50;
-    InetSocketAddress address;
-    try {
-      address = new InetSocketAddress(InetAddress.getLocalHost(), 1234);
-    } catch (UnknownHostException e) {
-
-      address = null;
-    }
-
-    String resourceKey = String.format("%s:%s:%s", tenantId, identifier, identifierValue);
-    final String resourceKeyHash = hashing.hash(resourceKey);
-
-    ResourceInfo resourceInfo = new ResourceInfo()
-            .setEnvoyId(envoyId)
-            .setIdentifier(identifier)
-            .setIdentifierValue(identifierValue)
-            .setLabels(envoyLabels)
-            .setTenantId(tenantId)
-            .setAddress(address);
-
-
-
-
-
-
-
-    envoyResourceManagement.registerResource(tenantId, envoyId, leaseId, identifier, envoyLabels, address).join();
-}
   }
+
   @Override
   public void start(String id, String content)
   {
-    log.info("GBJ6 Starting work on id={}, content={}", id, content);
+    log.info("Starting work on id={}, content={}", id, content);
     PartitionEntry newEntry = new PartitionEntry();
     JsonNode workContent;
     try {
@@ -104,6 +66,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
     newEntry.setRangeMax(workContent.get("end").asText());
     newEntry.setRangeMin(workContent.get("start").asText());
+
     GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     expectedResponse.getKvs().stream().forEach(kv -> {
@@ -120,6 +83,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       expectedEntry.setActive(false);
       newEntry.getExpectedTable().put(k, expectedEntry);
       });
+      
     GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     activeResponse.getKvs().stream().forEach(activeKv -> {
@@ -203,14 +167,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
   @Override
   public void update(String id, String content) {
-    log.info("GBJ Updating work on id={}, content={}", id, content);
+    log.info("Updating work on id={}, content={}", id, content);
     stop(id, content);
     start(id, content);
   }
 
   @Override
   public void stop(String id, String content) {
-    log.info("GBJ Stopping work on id={}, content={}", id, content);
+    log.info("Stopping work on id={}, content={}", id, content);
     PartitionEntry entry = partitionTable.get(id);
     if (entry != null) {
       partitionTable.remove(id);

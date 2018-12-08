@@ -36,8 +36,8 @@ public class PartitionEntry {
             watcher = envoyResourceManagement.getWatchOverRange(prefix,
                 partitionEntry.getRangeMin(), partitionEntry.getRangeMax(), revision);
 
-            running = true;
             taskScheduler.submit(() -> {
+                running = true;
                 log.info("Watching {}", name);
                 while (running) {
                     try {
