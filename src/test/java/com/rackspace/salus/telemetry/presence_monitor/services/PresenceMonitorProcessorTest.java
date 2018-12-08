@@ -64,7 +64,7 @@ public class PresenceMonitorProcessorTest {
   @Mock
   MetricExporter metricExporter;
 
-  @Mock
+  
   ThreadPoolTaskScheduler taskScheduler;
 
 
@@ -75,28 +75,25 @@ public class PresenceMonitorProcessorTest {
   @Autowired
   KeyHashing hashing;
 
+  String resourceInfoString =
+          "{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
+          "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
+          "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
+
+  String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
+         rangeEnd   = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  
   @Before
   public void setUp() throws Exception {
+    taskScheduler = new ThreadPoolTaskScheduler();
+    taskScheduler.setPoolSize(Integer.MAX_VALUE);
+    taskScheduler.setThreadNamePrefix("tasks-");
+    taskScheduler.initialize();
+
     final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
             .map(URI::toString)
             .collect(Collectors.toList());
     client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
-    envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-  }
-
-
-  @Test
-  public void testProcessorStart() throws Exception {
-    doNothing().when(metricExporter).run();
-    when(taskScheduler.submit((Runnable)any())).thenReturn(null);
-
-    PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
-            envoyResourceManagement,taskScheduler, metricExporter);
-    String resourceInfoString =
-            "{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
-            "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
-            "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
-
     client.getKVClient().put(
             ByteSequence.fromString("/resources/active/1"),
             ByteSequence.fromString(resourceInfoString)).join();
@@ -105,8 +102,17 @@ public class PresenceMonitorProcessorTest {
             ByteSequence.fromString("/resources/expected/1"),
             ByteSequence.fromString(resourceInfoString)).join();
 
-    String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
-           rangeEnd   = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
+  }
+
+
+  @Test
+  public void testProcessorStart() throws Exception {
+    doNothing().when(metricExporter).run();
+
+    PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
+            envoyResourceManagement,taskScheduler, metricExporter);
+
            
     p.start("id1", "{" +
             "\"start\":\"" + rangeStart + "\"," +
@@ -116,14 +122,12 @@ public class PresenceMonitorProcessorTest {
     assertEquals("range start should be all zeros", rangeStart, partitionEntry.getRangeMin());
     assertEquals("range end should be all f's", rangeEnd, partitionEntry.getRangeMax());
 
+
     ResourceInfo resourceInfo = objectMapper.readValue(resourceInfoString, ResourceInfo.class);
 
     PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get("1");
     assertEquals(resourceInfo, expectedEntry.getResourceInfo());
     assertEquals(true, expectedEntry.getActive());
-
-    System.out.println("hi");
-
 
   }
 
