@@ -3,6 +3,7 @@ package com.rackspace.salus.telemetry.presence_monitor.types;
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.ClosedClientException;
 import com.coreos.jetcd.watch.WatchResponse;
+import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import lombok.Data;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,13 +23,19 @@ public class PartitionEntry {
     @Data
     @Slf4j
     public static class PartitionWatcher {
-        Boolean running = false;
         final String name;
         final ThreadPoolTaskScheduler taskScheduler;
-        final Watch.Watcher watcher;
+        final String prefix;
+        final Long revision;
         final PartitionEntry partitionEntry;
         final BiConsumer<WatchResponse, PartitionEntry> watchResponseConsumer;
+        final EnvoyResourceManagement envoyResourceManagement;
+        Watch.Watcher watcher;
+        Boolean running = false;
         public void start() {
+            watcher = envoyResourceManagement.getWatchOverRange(prefix,
+                partitionEntry.getRangeMin(), partitionEntry.getRangeMax(), revision);
+
             running = true;
             taskScheduler.submit(() -> {
                 log.info("Watching {}", name);

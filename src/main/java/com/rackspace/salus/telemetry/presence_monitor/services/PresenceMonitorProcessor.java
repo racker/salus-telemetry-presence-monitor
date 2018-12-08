@@ -107,7 +107,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     expectedResponse.getKvs().stream().forEach(kv -> {
-      String k = kv.getKey().toStringUtf8().substring(16);
+      String k = kv.getKey().toStringUtf8().substring(20);
       ResourceInfo resourceInfo;
       PartitionEntry.ExpectedEntry expectedEntry = new PartitionEntry.ExpectedEntry();
       try {
@@ -123,7 +123,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     activeResponse.getKvs().stream().forEach(activeKv -> {
-      String activeKey = activeKv.getKey().toStringUtf8().substring(14);
+      String activeKey = activeKv.getKey().toStringUtf8().substring(18);
       PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
       if (entry == null) {
         log.warn("Entry is null for key {}", activeKey);
@@ -133,16 +133,20 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       }
     });
 
-    Watch.Watcher expectedWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_EXPECTED,
-              newEntry.getRangeMin(), newEntry.getRangeMax(), expectedResponse.getHeader().getRevision());
-    newEntry.setExpectedWatch(new PartitionEntry.PartitionWatcher("expected-" + newEntry.getRangeMin(),
-               taskScheduler, expectedWatch, newEntry, expectedWatchResponseConsumer));
+    newEntry.setExpectedWatch(new PartitionEntry.PartitionWatcher("expected-" + id,
+            taskScheduler, Keys.FMT_RESOURCES_EXPECTED,
+            expectedResponse.getHeader().getRevision(),
+            newEntry, expectedWatchResponseConsumer,
+            envoyResourceManagement));
     newEntry.getExpectedWatch().start();
-    Watch.Watcher activeWatch = envoyResourceManagement.getWatchOverRange(Keys.FMT_RESOURCES_ACTIVE,
-            newEntry.getRangeMin(), newEntry.getRangeMax(), activeResponse.getHeader().getRevision());
-    newEntry.setActiveWatch(new PartitionEntry.PartitionWatcher("active-" + newEntry.getRangeMin(),
-            taskScheduler, activeWatch, newEntry, activeWatchResponseConsumer));
+
+    newEntry.setActiveWatch(new PartitionEntry.PartitionWatcher("active-" + id,
+            taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
+            activeResponse.getHeader().getRevision(),
+            newEntry, activeWatchResponseConsumer,
+            envoyResourceManagement));
     newEntry.getActiveWatch().start();
+
     partitionTable.put(id, newEntry);
 
   }
@@ -154,7 +158,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       ResourceInfo resourceInfo;
       PartitionEntry.ExpectedEntry watchEntry;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(16);
+        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(20);
         watchEntry = new PartitionEntry.ExpectedEntry();
         try {
           resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
@@ -166,7 +170,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         watchEntry.setActive(false);
         partitionEntry.getExpectedTable().put(eventKey, watchEntry);
       } else {
-        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(16);
+        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(20);
         if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
           partitionEntry.getExpectedTable().remove(eventKey);
         } else {
@@ -183,10 +187,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       String eventKey;
       Boolean activeValue = false;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(14);
+        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(18);
         activeValue = true;
       } else {
-        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(14);
+        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(18);
       }
       if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
           partitionEntry.getExpectedTable().get(eventKey).setActive(activeValue);
