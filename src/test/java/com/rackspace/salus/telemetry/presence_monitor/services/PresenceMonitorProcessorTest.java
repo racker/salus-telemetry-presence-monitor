@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
+import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
@@ -28,7 +29,9 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.hamcrest.Matchers;
@@ -64,7 +67,7 @@ public class PresenceMonitorProcessorTest {
   @Mock
   MetricExporter metricExporter;
 
-  
+
   ThreadPoolTaskScheduler taskScheduler;
 
 
@@ -82,7 +85,9 @@ public class PresenceMonitorProcessorTest {
 
   String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
          rangeEnd   = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  
+
+  ResourceInfo resourceInfo;
+
   @Before
   public void setUp() throws Exception {
     taskScheduler = new ThreadPoolTaskScheduler();
@@ -94,15 +99,9 @@ public class PresenceMonitorProcessorTest {
             .map(URI::toString)
             .collect(Collectors.toList());
     client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
-    client.getKVClient().put(
-            ByteSequence.fromString("/resources/active/1"),
-            ByteSequence.fromString(resourceInfoString)).join();
-
-    client.getKVClient().put(
-            ByteSequence.fromString("/resources/expected/1"),
-            ByteSequence.fromString(resourceInfoString)).join();
 
     envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
+    resourceInfo = objectMapper.readValue(resourceInfoString, ResourceInfo.class);
   }
 
 
@@ -110,10 +109,19 @@ public class PresenceMonitorProcessorTest {
   public void testProcessorStart() throws Exception {
     doNothing().when(metricExporter).run();
 
+    client.getKVClient().put(
+            ByteSequence.fromString("/resources/expected/1"),
+            ByteSequence.fromString(resourceInfoString)).join();
+
+    client.getKVClient().put(
+            ByteSequence.fromString("/resources/active/1"),
+            ByteSequence.fromString(resourceInfoString)).join();
+
+
     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
             envoyResourceManagement,taskScheduler, metricExporter);
 
-           
+
     p.start("id1", "{" +
             "\"start\":\"" + rangeStart + "\"," +
             "\"end\":\"" + rangeEnd + "\"}");
@@ -123,11 +131,81 @@ public class PresenceMonitorProcessorTest {
     assertEquals("range end should be all f's", rangeEnd, partitionEntry.getRangeMax());
 
 
-    ResourceInfo resourceInfo = objectMapper.readValue(resourceInfoString, ResourceInfo.class);
+
 
     PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get("1");
     assertEquals(resourceInfo, expectedEntry.getResourceInfo());
     assertEquals(true, expectedEntry.getActive());
+
+  }
+
+  @Test
+  public void testProcessorWatchConsumers() throws Exception {
+    doNothing().when(metricExporter).run();
+
+    PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
+            envoyResourceManagement,taskScheduler, metricExporter);
+
+
+
+    // wrap expected watch consumer to release a semaphor when done
+    Semaphore expectedSem = new Semaphore(0);
+    BiConsumer<WatchResponse, PartitionEntry> originalExpectedConsumer = p.getExpectedWatchResponseConsumer();
+    BiConsumer<WatchResponse, PartitionEntry> newExpectedConsumer = (wr, pe) -> {
+          originalExpectedConsumer.accept(wr, pe);
+          expectedSem.release();
+    };
+    p.setExpectedWatchResponseConsumer(newExpectedConsumer);
+
+    // wrap active watch consumer to release a semaphor when done
+    Semaphore activeSem = new Semaphore(0);
+    BiConsumer<WatchResponse, PartitionEntry> originalActiveConsumer = p.getActiveWatchResponseConsumer();
+    BiConsumer<WatchResponse, PartitionEntry> newActiveConsumer = (wr, pe) -> {
+      originalActiveConsumer.accept(wr, pe);
+      activeSem.release();
+    };
+    p.setActiveWatchResponseConsumer(newActiveConsumer);
+
+
+    p.start("id1", "{" +
+            "\"start\":\"" + rangeStart + "\"," +
+            "\"end\":\"" + rangeEnd + "\"}");
+
+    PartitionEntry partitionEntry = p.getPartitionTable().get("id1");
+    assertEquals("No resources exist yet so expected table should be empty",
+            partitionEntry.getExpectedTable().size(), 0);
+
+    // Now generate an expected watch and wait for the sem
+    taskScheduler.submit(()-> {
+            try {
+              Thread.sleep(1000);
+            } catch (Exception e) {
+
+            }
+
+              client.getKVClient().put(
+                      ByteSequence.fromString("/resources/expected/1"),
+                      ByteSequence.fromString(resourceInfoString));
+            });
+    expectedSem.acquire();
+
+    assertEquals("The watch should have added one entry",
+            partitionEntry.getExpectedTable().size(), 1);
+    assertEquals("Entry should be inactive",
+            partitionEntry.getExpectedTable().get("1").getActive(), false);
+
+
+
+
+    // Now generate an active watch and wait for the sem
+    client.getKVClient().put(
+            ByteSequence.fromString("/resources/active/1"),
+            ByteSequence.fromString(resourceInfoString));
+    activeSem.acquire();
+
+    assertEquals("Entry should be active",
+            partitionEntry.getExpectedTable().get("1").getActive(), true);
+
 
   }
 
