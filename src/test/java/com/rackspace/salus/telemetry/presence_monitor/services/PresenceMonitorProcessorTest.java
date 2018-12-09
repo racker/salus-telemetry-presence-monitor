@@ -22,6 +22,7 @@ import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.sun.org.apache.xml.internal.serializer.utils.SerializerMessages_pt_BR;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import java.io.IOException;
 import java.net.URI;
@@ -111,12 +112,17 @@ public class PresenceMonitorProcessorTest {
     envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
     expectedResourceInfo = objectMapper.readValue(expectedResourceInfoString, ResourceInfo.class);
     activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
+    PresenceMonitorProperties presenceMonitorProperties = new PresenceMonitorProperties();
+    presenceMonitorProperties.setExportPeriodInSeconds(1);
+    metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties);
   }
 
 
   @Test
   public void testProcessorStart() throws Exception {
-    doNothing().when(metricRouter).route(any(), any());
+    Semaphore routerSem = new Semaphore(0);
+    doAnswer((a) -> {routerSem.release();
+                    return null;}).when(metricRouter).route(any(), any());
 
     client.getKVClient().put(
             ByteSequence.fromString("/resources/expected/1"),
@@ -142,6 +148,8 @@ public class PresenceMonitorProcessorTest {
     PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get("1");
     assertEquals(activeResourceInfo, expectedEntry.getResourceInfo());
     assertEquals(true, expectedEntry.getActive());
+    routerSem.acquire();
+    verify(metricRouter).route(expectedEntry, KafkaMessageType.METRIC);
 
     p.stop("id1", "{" +
             "\"start\":\"" + rangeStart + "\"," +
@@ -150,12 +158,10 @@ public class PresenceMonitorProcessorTest {
     assertEquals(p.getPartitionTable().size(), 0);
     assertEquals(partitionEntry.getExpectedWatch().getRunning(), false);
     assertEquals(partitionEntry.getActiveWatch().getRunning(), false);
-    verify(metricRouter).route(expectedEntry, KafkaMessageType.METRIC);
   }
 
   @Test
   public void testProcessorWatchConsumers() throws Exception {
-
     doNothing().when(metricRouter).route(any(), any());
 
     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
@@ -215,7 +221,6 @@ public class PresenceMonitorProcessorTest {
             partitionEntry.getExpectedTable().get("1").getActive(), true);
     assertEquals(activeResourceInfo, 
         partitionEntry.getExpectedTable().get("1").getResourceInfo());
-
     verify(metricRouter).route(partitionEntry.getExpectedTable().get("1"), KafkaMessageType.EVENT);
 
     // Now delete active entry and see it go inactive
