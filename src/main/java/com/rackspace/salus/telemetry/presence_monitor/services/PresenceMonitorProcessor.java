@@ -106,6 +106,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return;
       } else {
         entry.setActive(true);
+        ResourceInfo resourceInfo;
+        try {
+          resourceInfo = objectMapper.readValue(activeKv.getValue().getBytes(), ResourceInfo.class);
+        } catch (IOException e) {
+          log.warn("Failed to parse ResourceInfo", e);
+          return;
+        }
+        entry.setResourceInfo(resourceInfo);
       }
     });
 

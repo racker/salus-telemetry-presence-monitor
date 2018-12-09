@@ -29,7 +29,6 @@ public class SpringConfig {
         this.etcd = etcd;
         this.taskScheduler = taskScheduler;
         this.presenceMonitorProcessor = presenceMonitorProcessor;
-        System.out.println("gbj hignew3 bezin");
     }
     private WorkerProperties wp;
     private Client etcd;
@@ -38,7 +37,6 @@ public class SpringConfig {
     private PresenceMonitorProcessor presenceMonitorProcessor;
     @Bean
     public WorkAllocator getWorkAllocator() {
-          System.out.println("gbjgetwork");
         return new WorkAllocator(wp, etcd, presenceMonitorProcessor, taskScheduler);
     };
 }

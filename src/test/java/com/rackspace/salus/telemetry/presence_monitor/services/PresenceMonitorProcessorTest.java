@@ -80,15 +80,20 @@ public class PresenceMonitorProcessorTest {
   @Autowired
   KeyHashing hashing;
 
-  String resourceInfoString =
+  String expectedResourceInfoString =
           "{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
           "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
           "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
 
+  ResourceInfo expectedResourceInfo;
+          
+  String activeResourceInfoString = expectedResourceInfoString.replace("host:1234", "host2:3456");
+
+  ResourceInfo activeResourceInfo;
+          
   String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
          rangeEnd   = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  ResourceInfo resourceInfo;
 
   @Before
   public void setUp() throws Exception {
@@ -103,7 +108,8 @@ public class PresenceMonitorProcessorTest {
     client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
 
     envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-    resourceInfo = objectMapper.readValue(resourceInfoString, ResourceInfo.class);
+    expectedResourceInfo = objectMapper.readValue(expectedResourceInfoString, ResourceInfo.class);
+    activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
   }
 
 
@@ -113,11 +119,11 @@ public class PresenceMonitorProcessorTest {
 
     client.getKVClient().put(
             ByteSequence.fromString("/resources/expected/1"),
-            ByteSequence.fromString(resourceInfoString)).join();
+            ByteSequence.fromString(expectedResourceInfoString)).join();
 
     client.getKVClient().put(
             ByteSequence.fromString("/resources/active/1"),
-            ByteSequence.fromString(resourceInfoString)).join();
+            ByteSequence.fromString(activeResourceInfoString)).join();
 
 
     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
@@ -132,11 +138,8 @@ public class PresenceMonitorProcessorTest {
     assertEquals("range start should be all zeros", rangeStart, partitionEntry.getRangeMin());
     assertEquals("range end should be all f's", rangeEnd, partitionEntry.getRangeMax());
 
-
-
-
     PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get("1");
-    assertEquals(resourceInfo, expectedEntry.getResourceInfo());
+    assertEquals(activeResourceInfo, expectedEntry.getResourceInfo());
     assertEquals(true, expectedEntry.getActive());
 
   }
@@ -180,23 +183,17 @@ public class PresenceMonitorProcessorTest {
     assertEquals("No resources exist yet so expected table should be empty",
             partitionEntry.getExpectedTable().size(), 0);
     // Now generate an expected watch and wait for the sem
-    taskScheduler.submit(()-> {
-            try {
-              Thread.sleep(1000);
-            } catch (Exception e) {
-
-            }
-
-              client.getKVClient().put(
-                      ByteSequence.fromString("/resources/expected/1"),
-                      ByteSequence.fromString(resourceInfoString));
-            });
+    client.getKVClient().put(
+            ByteSequence.fromString("/resources/expected/1"),
+            ByteSequence.fromString(expectedResourceInfoString));
     expectedSem.acquire();
 
     assertEquals("The watch should have added one entry",
             partitionEntry.getExpectedTable().size(), 1);
     assertEquals("Entry should be inactive",
             partitionEntry.getExpectedTable().get("1").getActive(), false);
+    assertEquals(expectedResourceInfo,
+        partitionEntry.getExpectedTable().get("1").getResourceInfo());
 
 
 
@@ -204,13 +201,13 @@ public class PresenceMonitorProcessorTest {
     // Now generate an active watch and wait for the sem
     client.getKVClient().put(
             ByteSequence.fromString("/resources/active/1"),
-            ByteSequence.fromString(resourceInfoString));
+            ByteSequence.fromString(activeResourceInfoString));
     activeSem.acquire();
 
     assertEquals("Entry should be active",
             partitionEntry.getExpectedTable().get("1").getActive(), true);
-
-
+    assertEquals(activeResourceInfo, 
+        partitionEntry.getExpectedTable().get("1").getResourceInfo());
   }
 
 }

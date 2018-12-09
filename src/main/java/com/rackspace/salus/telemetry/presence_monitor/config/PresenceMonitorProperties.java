@@ -28,7 +28,7 @@ import java.util.Map;
 @ConfigurationProperties("presence-monitor")
 @Component
 @Data
-public class    PresenceMonitorProperties {
+public class PresenceMonitorProperties {
     Map<KafkaMessageType, String> kafkaTopics;
     int exportPeriodInSeconds;
 }
