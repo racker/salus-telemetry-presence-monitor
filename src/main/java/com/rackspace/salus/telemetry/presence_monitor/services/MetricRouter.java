@@ -82,7 +82,7 @@ public class MetricRouter {
             envoyLabels = envoySummary.getLabels();
             if (envoyLabels == null) {
                 log.warn("labels not found for {}, {]", tenantId, envoyId);
-                 }
+            }
         }
         Map<String, Long> iMap = new HashMap<>();
         // This is the name of the agent health metric used in v1:
@@ -145,5 +145,4 @@ public class MetricRouter {
                     }
                 });
     }
-
 }

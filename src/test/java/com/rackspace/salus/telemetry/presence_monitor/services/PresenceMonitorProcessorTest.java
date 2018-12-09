@@ -221,7 +221,5 @@ public class PresenceMonitorProcessorTest {
 
         assertEquals("Entry should be gone",
                 partitionEntry.getExpectedTable().containsKey("1"), false);
-
     }
-
 }

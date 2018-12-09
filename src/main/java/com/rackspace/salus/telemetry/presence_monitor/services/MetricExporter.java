@@ -23,6 +23,7 @@ public class MetricExporter extends TimerTask {
         this.metricRouter = metricRouter;
         this.presenceMonitorProperties = presenceMonitorProperties;
     }
+
     @Override
     public void run() {
         long startTime, elapsedTime;
@@ -46,8 +47,6 @@ public class MetricExporter extends TimerTask {
             } else {
                 log.warn("Metrics exporter unable to finish in time.");
             }
-
         }
     }
-
 }

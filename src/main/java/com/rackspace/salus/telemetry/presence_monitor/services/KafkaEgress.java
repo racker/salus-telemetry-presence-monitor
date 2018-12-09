@@ -41,7 +41,6 @@ public class KafkaEgress {
         if (topic == null) {
             throw new IllegalArgumentException(String.format("No topic configured for %s", messageType));
         }
-
         kafkaTemplate.send(topic, tenantId, payload);
     }
 }

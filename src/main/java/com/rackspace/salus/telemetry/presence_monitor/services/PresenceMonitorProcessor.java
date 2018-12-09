@@ -198,7 +198,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             }
         });
 
-
     @Override
     public void update(String id, String content) {
         log.info("Updating work on id={}, content={}", id, content);
