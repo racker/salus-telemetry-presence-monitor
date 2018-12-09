@@ -142,6 +142,13 @@ public class PresenceMonitorProcessorTest {
     assertEquals(activeResourceInfo, expectedEntry.getResourceInfo());
     assertEquals(true, expectedEntry.getActive());
 
+    p.stop("id1", "{" +
+            "\"start\":\"" + rangeStart + "\"," +
+            "\"end\":\"" + rangeEnd + "\"}");
+    
+    assertEquals(p.getPartitionTable().size(), 0);
+    assertEquals(partitionEntry.getExpectedWatch().getRunning(), false);
+    assertEquals(partitionEntry.getActiveWatch().getRunning(), false);
   }
 
   @Test
