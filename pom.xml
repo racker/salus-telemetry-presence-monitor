@@ -22,7 +22,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.rackspace.salus</groupId>
-    <artifactId>presence-monitor</artifactId>
+    <artifactId>salus-telemetry-presence-monitor</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
