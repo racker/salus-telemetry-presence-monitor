@@ -67,6 +67,8 @@ public class PresenceMonitorProcessorTest {
   @Mock
   MetricExporter metricExporter;
 
+  @Mock
+  MetricRouter metricRouter;
 
   ThreadPoolTaskScheduler taskScheduler;
 
@@ -141,7 +143,10 @@ public class PresenceMonitorProcessorTest {
 
   @Test
   public void testProcessorWatchConsumers() throws Exception {
+
     doNothing().when(metricExporter).run();
+    when(metricExporter.getMetricRouter()).thenReturn(metricRouter);
+    doNothing().when(metricRouter).route(any(), any());
 
     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
             envoyResourceManagement,taskScheduler, metricExporter);
@@ -174,7 +179,6 @@ public class PresenceMonitorProcessorTest {
     PartitionEntry partitionEntry = p.getPartitionTable().get("id1");
     assertEquals("No resources exist yet so expected table should be empty",
             partitionEntry.getExpectedTable().size(), 0);
-
     // Now generate an expected watch and wait for the sem
     taskScheduler.submit(()-> {
             try {
