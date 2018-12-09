@@ -8,6 +8,7 @@ import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
@@ -149,6 +150,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   BiConsumer<WatchResponse, PartitionEntry> activeWatchResponseConsumer = (watchResponse, partitionEntry) -> {
     watchResponse.getEvents().stream().forEach(event -> {
       String eventKey;
+      ResourceInfo resourceInfo;
       Boolean activeValue = false;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
         eventKey = event.getKeyValue().getKey().toStringUtf8().substring(18);
@@ -157,11 +159,24 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         eventKey = event.getPrevKV().getKey().toStringUtf8().substring(18);
       }
       if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
-          partitionEntry.getExpectedTable().get(eventKey).setActive(activeValue);
+          PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get(eventKey);
+          if (expectedEntry.getActive() != activeValue) {
+              expectedEntry.setActive(activeValue);
+              metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
+          }
+          // Update resource info if we have it
+          if (activeValue) {
+            try {
+              resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
+            } catch (IOException e) {
+              log.warn("Failed to parse ResourceInfo {}", e);
+              return;
+            }
+            expectedEntry.setResourceInfo(resourceInfo);
+          }
       } else {
           log.warn("Failed to find ExpectedEntry to update {}", eventKey);
       }
-
     });
   };
 

@@ -4,6 +4,8 @@ presence-monitor:
       telemetry.logs.json
     METRIC:
       telemetry.metrics.json
+    EVENT:
+      telemetry.events.json
   exportPeriodInSeconds:
     5
 etcd:

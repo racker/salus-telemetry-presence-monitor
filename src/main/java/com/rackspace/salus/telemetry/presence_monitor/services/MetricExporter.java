@@ -2,6 +2,7 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ public class MetricExporter extends TimerTask {
             startTime = System.currentTimeMillis();
             partitionTable.entrySet().stream().forEach(partitionEntry -> {
                 partitionEntry.getValue().getExpectedTable().forEach((id, expectedEntry) -> {
-                    metricRouter.route(id, expectedEntry);
+                    metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
                 });
 
             });

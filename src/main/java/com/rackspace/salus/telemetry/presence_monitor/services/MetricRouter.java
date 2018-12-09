@@ -66,12 +66,14 @@ public class MetricRouter {
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
     }
 
-    public void route(String id, PartitionEntry.ExpectedEntry expectedEntry) {
+    public void route(PartitionEntry.ExpectedEntry expectedEntry, KafkaMessageType type) {
         ResourceInfo resourceInfo = expectedEntry.getResourceInfo();
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
+        String resourceKey = String.format("%s:%s:%s", tenantId,
+            resourceInfo.getIdentifier(), resourceInfo.getIdentifierValue());
         Map<String, String> envoyLabels = new HashMap<>();
-        log.info("routing {}", id);
+        log.info("routing {}", resourceKey);
         EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
         if (envoySummary == null) {
             log.warn("envoySummary not found for {}, {]", tenantId, envoyId);
@@ -82,7 +84,8 @@ public class MetricRouter {
             log.warn("labels not found for {}, {]", tenantId, envoyId);
         }
         Map<String, Long> iMap = new HashMap<String, Long>();
-        iMap.put("GBJ_GET_NAME", expectedEntry.getActive() ? 1L : 0L);
+        // This is the name of the agent health metric used in v1:
+        iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
 
         final Instant timestamp = Instant.ofEpochMilli(System.currentTimeMillis());
 
@@ -91,10 +94,11 @@ public class MetricRouter {
             .setAccount(resourceInfo.getTenantId())
             .setTimestamp(universalTimestampFormatter.format(timestamp))
             .setDeviceMetadata(envoyLabels)
+            // Is this the correct setting for CollectionMetadata?
             .setCollectionMetadata(envoyLabels)
             .setMonitoringSystem(MonitoringSystem.RMII)
-            .setSystemMetadata(Collections.singletonMap("envoyId", resourceInfo.getEnvoyId()))
-            .setCollectionTarget(id)
+            .setSystemMetadata(Collections.singletonMap("envoyId", envoyId))
+            .setCollectionTarget(resourceKey)
             .setCollectionName("presence_monitor")
             .setFvalues(Collections.emptyMap())
             .setSvalues(Collections.emptyMap())
@@ -111,7 +115,7 @@ public class MetricRouter {
             datumWriter.write(externalMetric, jsonEncoder);
             jsonEncoder.flush();
 
-            kafkaEgress.send(resourceInfo.getTenantId(), KafkaMessageType.METRIC, out.toString(StandardCharsets.UTF_8.name()));
+            kafkaEgress.send(resourceInfo.getTenantId(), type, out.toString(StandardCharsets.UTF_8.name()));
 
         } catch (IOException e) {
             log.warn("Failed to Avro encode avroMetric={} original={}", externalMetric, resourceInfo, e);
