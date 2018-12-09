@@ -4,10 +4,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 
 import com.coreos.jetcd.Client;
@@ -21,6 +19,8 @@ import com.rackspace.salus.telemetry.etcd.types.KeyRange;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.etcd.types.WorkAllocationRealm;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import java.io.IOException;
@@ -43,6 +43,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -54,7 +55,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 public class PresenceMonitorProcessorTest {
   @Configuration
-  @Import({KeyHashing.class})
+  @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
   public static class TestConfig {
 
   }
@@ -64,10 +65,10 @@ public class PresenceMonitorProcessorTest {
 
   ObjectMapper objectMapper = new ObjectMapper();
 
-  @Mock
+  @Autowired
   MetricExporter metricExporter;
 
-  @Mock
+  @MockBean
   MetricRouter metricRouter;
 
   ThreadPoolTaskScheduler taskScheduler;
@@ -115,7 +116,7 @@ public class PresenceMonitorProcessorTest {
 
   @Test
   public void testProcessorStart() throws Exception {
-    doNothing().when(metricExporter).run();
+    doNothing().when(metricRouter).route(any(), any());
 
     client.getKVClient().put(
             ByteSequence.fromString("/resources/expected/1"),
@@ -149,13 +150,12 @@ public class PresenceMonitorProcessorTest {
     assertEquals(p.getPartitionTable().size(), 0);
     assertEquals(partitionEntry.getExpectedWatch().getRunning(), false);
     assertEquals(partitionEntry.getActiveWatch().getRunning(), false);
+    verify(metricRouter).route(expectedEntry, KafkaMessageType.METRIC);
   }
 
   @Test
   public void testProcessorWatchConsumers() throws Exception {
 
-    doNothing().when(metricExporter).run();
-    when(metricExporter.getMetricRouter()).thenReturn(metricRouter);
     doNothing().when(metricRouter).route(any(), any());
 
     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
@@ -215,6 +215,8 @@ public class PresenceMonitorProcessorTest {
             partitionEntry.getExpectedTable().get("1").getActive(), true);
     assertEquals(activeResourceInfo, 
         partitionEntry.getExpectedTable().get("1").getResourceInfo());
+
+    verify(metricRouter).route(partitionEntry.getExpectedTable().get("1"), KafkaMessageType.EVENT);
 
     // Now delete active entry and see it go inactive
     client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
