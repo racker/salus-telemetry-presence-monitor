@@ -101,7 +101,7 @@ public class MetricRouterTest {
 
         metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
 
-         verify(kafkaEgress).send(eq("123456"), eq(KafkaMessageType.METRIC),
+        verify(kafkaEgress).send(eq("123456"), eq(KafkaMessageType.METRIC),
                 argThat(t -> p.matcher(t).matches()));
      }
 }

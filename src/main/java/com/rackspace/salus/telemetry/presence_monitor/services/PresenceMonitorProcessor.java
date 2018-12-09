@@ -79,9 +79,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newEntry.setRangeMax(workContent.get("end").asText());
         newEntry.setRangeMin(workContent.get("start").asText());
 
+        // Get the expected entries
         GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
                 newEntry.getRangeMax()).join();
         expectedResponse.getKvs().stream().forEach(kv -> {
+            // Create an entry for the kv
             String k = getExpectedId(kv);
             ResourceInfo resourceInfo;
             PartitionEntry.ExpectedEntry expectedEntry = new PartitionEntry.ExpectedEntry();
@@ -96,25 +98,26 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             newEntry.getExpectedTable().put(k, expectedEntry);
         });
 
+        // Get the active  entries
         GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
                 newEntry.getRangeMax()).join();
         activeResponse.getKvs().stream().forEach(activeKv -> {
+            // Update entry for the kv
             String activeKey = getExpectedId(activeKv);
             PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
             if (entry == null) {
                 log.warn("Entry is null for key {}", activeKey);
-                return;
-            } else {
-                entry.setActive(true);
-                ResourceInfo resourceInfo;
-                try {
-                    resourceInfo = objectMapper.readValue(activeKv.getValue().getBytes(), ResourceInfo.class);
-                } catch (IOException e) {
-                    log.warn("Failed to parse ResourceInfo", e);
-                    return;
-                }
-                entry.setResourceInfo(resourceInfo);
+                entry = new PartitionEntry.ExpectedEntry();
             }
+            entry.setActive(true);
+            ResourceInfo resourceInfo;
+            try {
+                resourceInfo = objectMapper.readValue(activeKv.getValue().getBytes(), ResourceInfo.class);
+            } catch (IOException e) {
+                log.warn("Failed to parse ResourceInfo", e);
+                return;
+            }
+            entry.setResourceInfo(resourceInfo);
         });
 
         newEntry.setExpectedWatch(new PartitionEntry.PartitionWatcher("expected-" + id,
@@ -136,12 +139,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
 
+    // Handle watch events from the expected keys
     BiConsumer<WatchResponse, PartitionEntry> expectedWatchResponseConsumer = (watchResponse, partitionEntry) -> {
         watchResponse.getEvents().stream().forEach(event -> {
             String eventKey;
             ResourceInfo resourceInfo;
             PartitionEntry.ExpectedEntry watchEntry;
             if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
+                // add new entry
                 eventKey = getExpectedId(event.getKeyValue());
                 watchEntry = new PartitionEntry.ExpectedEntry();
                 try {
@@ -154,6 +159,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 watchEntry.setActive(false);
                 partitionEntry.getExpectedTable().put(eventKey, watchEntry);
             } else {
+                // Delete old entry
                 eventKey = getExpectedId(event.getPrevKV());
 
                 if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
@@ -167,6 +173,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         });
     };
 
+    // Handle watch events from the active keys
     BiConsumer<WatchResponse, PartitionEntry> activeWatchResponseConsumer = (watchResponse, partitionEntry) -> {
         watchResponse.getEvents().stream().forEach(event -> {
             String eventKey;

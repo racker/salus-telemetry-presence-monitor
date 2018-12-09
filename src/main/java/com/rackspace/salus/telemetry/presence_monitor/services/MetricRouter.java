@@ -72,16 +72,17 @@ public class MetricRouter {
         String envoyId = resourceInfo.getEnvoyId();
         String resourceKey = String.format("%s:%s:%s", tenantId,
             resourceInfo.getIdentifier(), resourceInfo.getIdentifierValue());
-        Map<String, String> envoyLabels = new HashMap<>();
+        Map<String, String> envoyLabels;
         log.info("routing {}", resourceKey);
         EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
         if (envoySummary == null) {
             log.warn("envoySummary not found for {}, {]", tenantId, envoyId);
-            return;
-        }
-        envoyLabels = envoySummary.getLabels();
-        if (envoyLabels == null) {
-            log.warn("labels not found for {}, {]", tenantId, envoyId);
+            envoyLabels = Collections.emptyMap();
+        } else {
+            envoyLabels = envoySummary.getLabels();
+            if (envoyLabels == null) {
+                log.warn("labels not found for {}, {]", tenantId, envoyId);
+                 }
         }
         Map<String, Long> iMap = new HashMap<String, Long>();
         // This is the name of the agent health metric used in v1:
