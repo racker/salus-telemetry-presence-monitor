@@ -2,7 +2,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
-import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.kv.GetResponse;
 import com.coreos.jetcd.watch.WatchResponse;
@@ -22,12 +21,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
@@ -82,7 +75,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         // Get the expected entries
         GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
                 newEntry.getRangeMax()).join();
-        expectedResponse.getKvs().stream().forEach(kv -> {
+        expectedResponse.getKvs().forEach(kv -> {
             // Create an entry for the kv
             String k = getExpectedId(kv);
             ResourceInfo resourceInfo;
@@ -101,7 +94,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         // Get the active  entries
         GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
                 newEntry.getRangeMax()).join();
-        activeResponse.getKvs().stream().forEach(activeKv -> {
+        activeResponse.getKvs().forEach(activeKv -> {
             // Update entry for the kv
             String activeKey = getExpectedId(activeKv);
             PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
@@ -140,8 +133,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
 
     // Handle watch events from the expected keys
-    BiConsumer<WatchResponse, PartitionEntry> expectedWatchResponseConsumer = (watchResponse, partitionEntry) -> {
-        watchResponse.getEvents().stream().forEach(event -> {
+    BiConsumer<WatchResponse, PartitionEntry> expectedWatchResponseConsumer = (watchResponse, partitionEntry) ->
+        watchResponse.getEvents().forEach(event -> {
             String eventKey;
             ResourceInfo resourceInfo;
             PartitionEntry.ExpectedEntry watchEntry;
@@ -166,16 +159,15 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                     partitionEntry.getExpectedTable().remove(eventKey);
                 } else {
                     log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
-                    return;
                 }
 
             }
         });
-    };
+
 
     // Handle watch events from the active keys
-    BiConsumer<WatchResponse, PartitionEntry> activeWatchResponseConsumer = (watchResponse, partitionEntry) -> {
-        watchResponse.getEvents().stream().forEach(event -> {
+    BiConsumer<WatchResponse, PartitionEntry> activeWatchResponseConsumer = (watchResponse, partitionEntry) ->
+        watchResponse.getEvents().forEach(event -> {
             String eventKey;
             ResourceInfo resourceInfo;
             Boolean activeValue = false;
@@ -205,7 +197,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 log.warn("Failed to find ExpectedEntry to update {}", eventKey);
             }
         });
-    };
+
 
     @Override
     public void update(String id, String content) {

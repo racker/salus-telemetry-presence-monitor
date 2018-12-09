@@ -58,28 +58,19 @@ public class MetricRouterTest {
     @Rule
     public final EtcdClusterResource etcd = new EtcdClusterResource("MetricRouterTest", 1);
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @MockBean
     KafkaEgress kafkaEgress;
 
-    MetricRouter metricRouter;
+    private MetricRouter metricRouter;
 
     @Autowired
             EncoderFactory encoderFactory;
 
-    Client client;
+    private Client client;
 
-    String expectedEntryString =
-            "{\"active\": true, \"resourceInfo\":{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
-                    "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
-                    "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
-
-    String envoyString =
-            "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},  " +
-                    "\"identifier\":\"os\"}";
-
-    PartitionEntry.ExpectedEntry expectedEntry;
+    private PartitionEntry.ExpectedEntry expectedEntry;
     @Before
     public void setUp() throws Exception {
       final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
@@ -87,12 +78,17 @@ public class MetricRouterTest {
               .collect(Collectors.toList());
       client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
       metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper);
-      expectedEntry = objectMapper.readValue(expectedEntryString, PartitionEntry.ExpectedEntry.class);
+        String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
+                "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
+                "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
+        expectedEntry = objectMapper.readValue(expectedEntryString, PartitionEntry.ExpectedEntry.class);
 
     }
 
     @Test
     public void testRouteMetric() {
+        String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},  " +
+                "\"identifier\":\"os\"}";
         client.getKVClient().put(
                 ByteSequence.fromString("/tenants/123456/envoysById/abcde"),
                 ByteSequence.fromString(envoyString)).join();

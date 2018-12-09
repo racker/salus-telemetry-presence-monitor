@@ -1,6 +1,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.rackspace.salus.common.workpart.config.EtcdConfig;
 import com.rackspace.salus.common.workpart.config.EtcdProperties;
 import com.rackspace.salus.common.workpart.config.WorkerProperties;
@@ -18,12 +18,12 @@ import com.coreos.jetcd.Client;
 
 
 @Configuration
-@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class, ObjectMapper.class,
+@Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class,
         KeyHashing.class, EnvoyResourceManagement.class, EncoderFactory.class})
 public class SpringConfig {
     
     @Autowired
-    SpringConfig(WorkerProperties wp, Client etcd, ThreadPoolTaskScheduler taskScheduler, ObjectMapper objectMapper,
+    SpringConfig(WorkerProperties wp, Client etcd, ThreadPoolTaskScheduler taskScheduler,
                  PresenceMonitorProcessor presenceMonitorProcessor){
         this.wp = wp;
         this.etcd = etcd;
@@ -33,10 +33,9 @@ public class SpringConfig {
     private WorkerProperties wp;
     private Client etcd;
     private ThreadPoolTaskScheduler taskScheduler;
-    private ObjectMapper objectMapper;
     private PresenceMonitorProcessor presenceMonitorProcessor;
     @Bean
     public WorkAllocator getWorkAllocator() {
         return new WorkAllocator(wp, etcd, presenceMonitorProcessor, taskScheduler);
-    };
+    }
 }

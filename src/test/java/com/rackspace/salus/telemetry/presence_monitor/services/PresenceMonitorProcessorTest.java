@@ -1,9 +1,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -12,41 +9,27 @@ import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
-import com.rackspace.salus.telemetry.etcd.types.KeyRange;
-import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.etcd.types.WorkAllocationRealm;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
-import com.sun.org.apache.xml.internal.serializer.utils.SerializerMessages_pt_BR;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
-import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -65,7 +48,7 @@ public class PresenceMonitorProcessorTest {
     @Rule
     public final EtcdClusterResource etcd = new EtcdClusterResource("PresenceMonitorProcessorTest", 1);
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     MetricExporter metricExporter;
@@ -73,28 +56,27 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricRouter metricRouter;
 
-    ThreadPoolTaskScheduler taskScheduler;
+    private ThreadPoolTaskScheduler taskScheduler;
 
+    private EnvoyResourceManagement envoyResourceManagement;
 
-    EnvoyResourceManagement envoyResourceManagement;
-
-    Client client;
+    private Client client;
 
     @Autowired
     KeyHashing hashing;
 
-    String expectedResourceInfoString =
+    private String expectedResourceInfoString =
             "{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
                     "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
 
-    ResourceInfo expectedResourceInfo;
+    private ResourceInfo expectedResourceInfo;
 
-    String activeResourceInfoString = expectedResourceInfoString.replace("host:1234", "host2:3456");
+    private String activeResourceInfoString = expectedResourceInfoString.replace("host:1234", "host2:3456");
 
-    ResourceInfo activeResourceInfo;
+    private ResourceInfo activeResourceInfo;
 
-    String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
+    private String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
             rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
 
@@ -171,7 +153,7 @@ public class PresenceMonitorProcessorTest {
                 envoyResourceManagement, taskScheduler, metricExporter);
 
 
-        // wrap expected watch consumer to release a semaphor when done
+        // wrap expected watch consumer to release a semaphore when done
         Semaphore expectedSem = new Semaphore(0);
         BiConsumer<WatchResponse, PartitionEntry> originalExpectedConsumer = p.getExpectedWatchResponseConsumer();
         BiConsumer<WatchResponse, PartitionEntry> newExpectedConsumer = (wr, pe) -> {
@@ -180,7 +162,7 @@ public class PresenceMonitorProcessorTest {
         };
         p.setExpectedWatchResponseConsumer(newExpectedConsumer);
 
-        // wrap active watch consumer to release a semaphor when done
+        // wrap active watch consumer to release a semaphore when done
         Semaphore activeSem = new Semaphore(0);
         BiConsumer<WatchResponse, PartitionEntry> originalActiveConsumer = p.getActiveWatchResponseConsumer();
         BiConsumer<WatchResponse, PartitionEntry> newActiveConsumer = (wr, pe) -> {
@@ -197,6 +179,7 @@ public class PresenceMonitorProcessorTest {
         PartitionEntry partitionEntry = p.getPartitionTable().get("id1");
         assertEquals("No resources exist yet so expected table should be empty",
                 partitionEntry.getExpectedTable().size(), 0);
+
         // Now generate an expected watch and wait for the sem
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/expected/1"),

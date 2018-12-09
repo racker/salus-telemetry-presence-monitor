@@ -29,7 +29,7 @@ public class MetricExporter extends TimerTask {
         while (true) {
             log.info("Starting exporter iteration.");
             startTime = System.currentTimeMillis();
-            partitionTable.entrySet().stream().forEach(partitionEntry -> {
+            partitionTable.entrySet().forEach(partitionEntry -> {
                 partitionEntry.getValue().getExpectedTable().forEach((id, expectedEntry) -> {
                     metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
                 });

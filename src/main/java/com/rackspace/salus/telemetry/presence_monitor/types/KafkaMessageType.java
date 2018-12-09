@@ -21,5 +21,5 @@ package com.rackspace.salus.telemetry.presence_monitor.types;
 public enum KafkaMessageType {
     LOG,
     METRIC,
-    EVENT;
+    EVENT
 }

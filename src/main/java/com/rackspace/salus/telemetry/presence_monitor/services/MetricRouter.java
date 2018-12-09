@@ -84,7 +84,7 @@ public class MetricRouter {
                 log.warn("labels not found for {}, {]", tenantId, envoyId);
                  }
         }
-        Map<String, Long> iMap = new HashMap<String, Long>();
+        Map<String, Long> iMap = new HashMap<>();
         // This is the name of the agent health metric used in v1:
         iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
 
@@ -135,9 +135,8 @@ public class MetricRouter {
                         return null;
                     } else {
                         try {
-                            EnvoySummary envoySummary = objectMapper.readValue(getResponse.getKvs().get(0)
+                            return objectMapper.readValue(getResponse.getKvs().get(0)
                                     .getValue().getBytes(), EnvoySummary.class);
-                            return envoySummary;
                         } catch (IOException e) {
                             log.warn("Unable to read envoy data for {}, {}", tenantId, envoyInstanceId);
                             return null;
