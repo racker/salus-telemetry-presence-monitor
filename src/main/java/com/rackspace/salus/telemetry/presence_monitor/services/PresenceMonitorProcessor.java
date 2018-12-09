@@ -3,6 +3,7 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.Watch;
+import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.kv.GetResponse;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +41,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
   private EnvoyResourceManagement envoyResourceManagement;
   private ThreadPoolTaskScheduler taskScheduler;
   private MetricExporter metricExporter;
+  private Boolean exporterStarted = false;
+  
   @Autowired
   PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
       EnvoyResourceManagement envoyResourceManagement,
@@ -50,13 +54,20 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     this.taskScheduler = taskScheduler;
     this.metricExporter = metricExporter;
     this.metricExporter.setPartitionTable(partitionTable);
-    taskScheduler.submit(metricExporter);
   }
 
+  private String getExpectedId(KeyValue kv) {
+     String[] strings = kv.getKey().toStringUtf8().split("/");
+     return strings[strings.length - 1];
+  }
   @Override
   public void start(String id, String content)
   {
     log.info("Starting work on id={}, content={}", id, content);
+      if (!exporterStarted) {
+          taskScheduler.submit(metricExporter);
+          exporterStarted = true;
+      }
     PartitionEntry newEntry = new PartitionEntry();
     JsonNode workContent;
     try {
@@ -71,7 +82,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     expectedResponse.getKvs().stream().forEach(kv -> {
-      String k = kv.getKey().toStringUtf8().substring(20);
+      String k = getExpectedId(kv);
       ResourceInfo resourceInfo;
       PartitionEntry.ExpectedEntry expectedEntry = new PartitionEntry.ExpectedEntry();
       try {
@@ -88,7 +99,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
             newEntry.getRangeMax()).join();
     activeResponse.getKvs().stream().forEach(activeKv -> {
-      String activeKey = activeKv.getKey().toStringUtf8().substring(18);
+      String activeKey = getExpectedId(activeKv);
       PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
       if (entry == null) {
         log.warn("Entry is null for key {}", activeKey);
@@ -123,7 +134,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       ResourceInfo resourceInfo;
       PartitionEntry.ExpectedEntry watchEntry;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(20);
+        eventKey = getExpectedId(event.getKeyValue());
         watchEntry = new PartitionEntry.ExpectedEntry();
         try {
           resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
@@ -135,7 +146,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         watchEntry.setActive(false);
         partitionEntry.getExpectedTable().put(eventKey, watchEntry);
       } else {
-        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(20);
+        eventKey = getExpectedId(event.getPrevKV());
+
         if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
           partitionEntry.getExpectedTable().remove(eventKey);
         } else {
@@ -153,10 +165,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
       ResourceInfo resourceInfo;
       Boolean activeValue = false;
       if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-        eventKey = event.getKeyValue().getKey().toStringUtf8().substring(18);
+        eventKey = getExpectedId(event.getKeyValue());
         activeValue = true;
       } else {
-        eventKey = event.getPrevKV().getKey().toStringUtf8().substring(18);
+        eventKey = getExpectedId(event.getPrevKV());
       }
       if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
           PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get(eventKey);
