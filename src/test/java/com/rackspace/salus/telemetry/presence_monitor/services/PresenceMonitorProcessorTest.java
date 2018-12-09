@@ -215,6 +215,23 @@ public class PresenceMonitorProcessorTest {
             partitionEntry.getExpectedTable().get("1").getActive(), true);
     assertEquals(activeResourceInfo, 
         partitionEntry.getExpectedTable().get("1").getResourceInfo());
+
+    // Now delete active entry and see it go inactive
+    client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
+    activeSem.acquire();
+
+    assertEquals("Entry should be inactive",
+            partitionEntry.getExpectedTable().get("1").getActive(), false);
+    assertEquals(activeResourceInfo, 
+        partitionEntry.getExpectedTable().get("1").getResourceInfo());
+
+    // Now delete expected entry and see it removed from the table
+    client.getKVClient().delete(ByteSequence.fromString("/resources/expected/1"));
+    expectedSem.acquire();
+
+    assertEquals("Entry should be gone",
+            partitionEntry.getExpectedTable().containsKey("1"), false);
+        
   }
 
 }
