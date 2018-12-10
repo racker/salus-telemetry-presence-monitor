@@ -13,6 +13,7 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import com.rackspace.salus.common.workpart.WorkProcessor;
@@ -113,14 +114,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             entry.setResourceInfo(resourceInfo);
         });
 
-        newEntry.setExpectedWatch(new PartitionEntry.PartitionWatcher("expected-" + id,
+        newEntry.setExpectedWatch(new PartitionWatcher("expected-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_EXPECTED,
                 expectedResponse.getHeader().getRevision(),
                 newEntry, expectedWatchResponseConsumer,
                 envoyResourceManagement));
         newEntry.getExpectedWatch().start();
 
-        newEntry.setActiveWatch(new PartitionEntry.PartitionWatcher("active-" + id,
+        newEntry.setActiveWatch(new PartitionWatcher("active-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
                 activeResponse.getHeader().getRevision(),
                 newEntry, activeWatchResponseConsumer,
@@ -155,9 +156,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 // Delete old entry
                 eventKey = getExpectedId(event.getPrevKV());
 
-                if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
-                    partitionEntry.getExpectedTable().remove(eventKey);
-                } else {
+                if (partitionEntry.getExpectedTable().remove(eventKey) == null) {
                     log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
                 }
 

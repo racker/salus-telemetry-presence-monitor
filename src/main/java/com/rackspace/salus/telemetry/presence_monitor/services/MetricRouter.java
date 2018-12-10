@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
-import com.rackspace.salus.telemetry.etcd.types.EnvoySummary;
+import com.rackspace.salus.telemetry.model.EnvoySummary;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import java.io.ByteArrayOutputStream;
@@ -95,8 +95,7 @@ public class MetricRouter {
             .setAccount(resourceInfo.getTenantId())
             .setTimestamp(universalTimestampFormatter.format(timestamp))
             .setDeviceMetadata(envoyLabels)
-            // Is this the correct setting for CollectionMetadata?
-            .setCollectionMetadata(envoyLabels)
+            .setCollectionMetadata(Collections.emptyMap())
             .setMonitoringSystem(MonitoringSystem.RMII)
             .setSystemMetadata(Collections.singletonMap("envoyId", envoyId))
             .setCollectionTarget(resourceKey)

@@ -93,7 +93,7 @@ public class MetricRouterTest {
                 ByteSequence.fromString("/tenants/123456/envoysById/abcde"),
                 ByteSequence.fromString(envoyString)).join();
 
-       Pattern p = Pattern.compile("\\{\"timestamp\":\".*\",\"accountType\":\"RCN\",\"account\":\"123456\",\"device\":\"\",\"deviceLabel\":\"\",\"deviceMetadata\":\\{\"os\":\"LINUX\",\"arch\":\"X86_64\"\\},\"monitoringSystem\":\"RMII\",\"systemMetadata\":\\{\"envoyId\":\"abcde\"\\},\"collectionName\":\"presence_monitor\",\"collectionLabel\":\"\",\"collectionTarget\":\"123456:os:LINUX\",\"collectionMetadata\":\\{\"os\":\"LINUX\",\"arch\":\"X86_64\"\\},\"ivalues\":\\{\"connected\":1\\},\"fvalues\":\\{\\},\"svalues\":\\{\\},\"units\":\\{\\}\\}");
+       Pattern p = Pattern.compile("\\{\"timestamp\":\".*\",\"accountType\":\"RCN\",\"account\":\"123456\",\"device\":\"\",\"deviceLabel\":\"\",\"deviceMetadata\":\\{\"os\":\"LINUX\",\"arch\":\"X86_64\"\\},\"monitoringSystem\":\"RMII\",\"systemMetadata\":\\{\"envoyId\":\"abcde\"\\},\"collectionName\":\"presence_monitor\",\"collectionLabel\":\"\",\"collectionTarget\":\"123456:os:LINUX\",\"collectionMetadata\":\\{\\},\"ivalues\":\\{\"connected\":1\\},\"fvalues\":\\{\\},\"svalues\":\\{\\},\"units\":\\{\\}\\}");
 
         metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
 
