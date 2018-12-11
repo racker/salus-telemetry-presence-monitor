@@ -1,0 +1,15 @@
+presence-monitor:
+  kafka-topics:
+    LOG:
+      telemetry.logs.json
+    METRIC:
+      telemetry.metrics.json
+    EVENT:
+      telemetry.events.json
+  exportPeriod:
+    5
+etcd:
+  url: http://localhost:2479
+worker:
+  prefix:
+    /workAllocations/PRESENCE_MONITOR
