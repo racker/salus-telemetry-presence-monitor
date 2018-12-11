@@ -2,8 +2,9 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
@@ -16,14 +17,13 @@ import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProp
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -98,7 +98,7 @@ public class PresenceMonitorProcessorTest {
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
         PresenceMonitorProperties presenceMonitorProperties = new PresenceMonitorProperties();
         presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
-        metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties);
+        metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, new SimpleMeterRegistry());
     }
 
 
@@ -120,7 +120,8 @@ public class PresenceMonitorProcessorTest {
 
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
-                envoyResourceManagement, taskScheduler, metricExporter);
+                envoyResourceManagement, taskScheduler, metricExporter,
+                new SimpleMeterRegistry());
 
 
         p.start("id1", "{" +
@@ -151,7 +152,8 @@ public class PresenceMonitorProcessorTest {
         doNothing().when(metricRouter).route(any(), any());
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
-                envoyResourceManagement, taskScheduler, metricExporter);
+                envoyResourceManagement, taskScheduler, metricExporter,
+                new SimpleMeterRegistry());
 
 
         // wrap expected watch consumer to release a semaphore when done
