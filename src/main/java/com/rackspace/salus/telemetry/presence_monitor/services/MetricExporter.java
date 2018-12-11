@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,9 +39,9 @@ public class MetricExporter extends TimerTask {
 
             });
             elapsedTime = System.currentTimeMillis() - startTime;
-            if (elapsedTime < (presenceMonitorProperties.getExportPeriodInSeconds() * 1000)) {
+            if (elapsedTime < (presenceMonitorProperties.getExportPeriod().toMillis())) {
                 try {
-                    Thread.sleep((presenceMonitorProperties.getExportPeriodInSeconds() * 1000) - elapsedTime );
+                    Thread.sleep((presenceMonitorProperties.getExportPeriod().toMillis()) - elapsedTime );
                 } catch (InterruptedException e) {
                     //exit loop when interrupted
                     break;

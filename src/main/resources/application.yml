@@ -6,7 +6,7 @@ presence-monitor:
       telemetry.metrics.json
     EVENT:
       telemetry.events.json
-  exportPeriodInSeconds:
+  exportPeriod:
     5
 etcd:
   url: http://localhost:2479

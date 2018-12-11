@@ -18,6 +18,7 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
@@ -28,6 +29,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.convert.DurationUnit;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Configuration;
@@ -96,7 +98,7 @@ public class PresenceMonitorProcessorTest {
         expectedResourceInfo = objectMapper.readValue(expectedResourceInfoString, ResourceInfo.class);
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
         PresenceMonitorProperties presenceMonitorProperties = new PresenceMonitorProperties();
-        presenceMonitorProperties.setExportPeriodInSeconds(1);
+        presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
         metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties);
     }
 
