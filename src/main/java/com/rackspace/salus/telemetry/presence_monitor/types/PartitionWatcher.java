@@ -2,10 +2,11 @@ package com.rackspace.salus.telemetry.presence_monitor.types;
 
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.ClosedClientException;
+import com.coreos.jetcd.common.exception.ClosedWatcherException;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
-import lombok.Data;
 import java.util.function.BiConsumer;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,7 @@ public class PartitionWatcher {
                     if (running) {
                         watchResponseConsumer.accept(watchResponse, partitionSlice);
                     }
-                } catch (ClosedClientException e) {
+                } catch (ClosedClientException|ClosedWatcherException e) {
                     log.debug("Stopping watching of {}", name);
                     return;
                 } catch (InterruptedException e) {
