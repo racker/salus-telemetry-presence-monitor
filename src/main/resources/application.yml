@@ -13,3 +13,7 @@ etcd:
 worker:
   prefix:
     /workAllocations/PRESENCE_MONITOR
+spring:
+  main:
+    web-environment:
+      false
