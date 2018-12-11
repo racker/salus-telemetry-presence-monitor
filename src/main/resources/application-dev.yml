@@ -1,0 +1,13 @@
+server:
+  port: 8083
+logging:
+  level:
+    com.rackspace.salus: debug
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+          - metrics

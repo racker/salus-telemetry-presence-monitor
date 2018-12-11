@@ -8,22 +8,25 @@ import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import com.rackspace.salus.common.workpart.WorkProcessor;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import com.rackspace.salus.common.workpart.WorkProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 
 @Component
 @Slf4j
@@ -37,10 +40,17 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private MetricExporter metricExporter;
     private Boolean exporterStarted = false;
 
+    private final MeterRegistry meterRegistry;
+    private final Counter startedWork;
+    private final Counter updatedWork;
+    private final Counter stoppedWork;
+
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
-                             ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter) {
+                             ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
+                             MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
         partitionTable = new ConcurrentHashMap<>();
         this.objectMapper = objectMapper;
         this.etcd = etcd;
@@ -48,6 +58,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
         this.metricExporter.setPartitionTable(partitionTable);
+
+        startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
+        updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
+        stoppedWork = meterRegistry.counter("workProcessorChange", "state", "stopped");
+        meterRegistry.gaugeMapSize("partitionSlices", Collections.emptyList(), partitionTable);
     }
 
     private String getExpectedId(KeyValue kv) {
@@ -58,11 +73,17 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     @Override
     public void start(String id, String content) {
         log.info("Starting work on id={}, content={}", id, content);
+        startedWork.increment();
+
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
             exporterStarted = true;
         }
         PartitionSlice newSlice = new PartitionSlice();
+        meterRegistry.gaugeMapSize("partitionExpectedSize",
+            Collections.singletonList(Tag.of("id", id)),
+            newSlice.getExpectedTable());
+
         JsonNode workContent;
         try {
             workContent = objectMapper.readTree(content);
@@ -200,6 +221,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     @Override
     public void update(String id, String content) {
         log.info("Updating work on id={}, content={}", id, content);
+        updatedWork.increment();
+
         stop(id, content);
         start(id, content);
     }
@@ -207,6 +230,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     @Override
     public void stop(String id, String content) {
         log.info("Stopping work on id={}, content={}", id, content);
+        stoppedWork.increment();
+
         PartitionSlice slice = partitionTable.get(id);
         if (slice != null) {
             partitionTable.remove(id);

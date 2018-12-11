@@ -27,14 +27,13 @@ import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
-
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
-import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
 import org.junit.Rule;
@@ -77,7 +76,7 @@ public class MetricRouterTest {
               .map(URI::toString)
               .collect(Collectors.toList());
       client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
-      metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper);
+      metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry());
         String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
                 "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";

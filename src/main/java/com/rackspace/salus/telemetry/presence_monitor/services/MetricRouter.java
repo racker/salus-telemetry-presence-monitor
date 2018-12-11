@@ -18,14 +18,20 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import static com.rackspace.salus.telemetry.etcd.EtcdUtils.buildKey;
+
 import com.coreos.jetcd.Client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
+import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.EnvoySummary;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -35,9 +41,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.ResourceInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.io.EncoderFactory;
@@ -45,8 +48,6 @@ import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import static com.rackspace.salus.telemetry.etcd.EtcdUtils.buildKey;
 
 @Service
 @Slf4j
@@ -56,14 +57,18 @@ public class MetricRouter {
     private final KafkaEgress kafkaEgress;
     private final Client etcd;
     private final ObjectMapper objectMapper;
+    private final Counter metricSent;
 
     @Autowired
-    public MetricRouter(EncoderFactory avroEncoderFactory, KafkaEgress kafkaEgress, Client etcd, ObjectMapper objectMapper) {
+    public MetricRouter(EncoderFactory avroEncoderFactory, KafkaEgress kafkaEgress, Client etcd,
+        ObjectMapper objectMapper, MeterRegistry meterRegistry) {
         this.avroEncoderFactory = avroEncoderFactory;
         this.kafkaEgress = kafkaEgress;
         this.etcd = etcd;
         this.objectMapper = objectMapper;
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
+
+        metricSent = meterRegistry.counter("metricSent");
     }
 
     public void route(PartitionSlice.ExpectedEntry expectedEntry, KafkaMessageType type) {
@@ -115,6 +120,7 @@ public class MetricRouter {
             datumWriter.write(externalMetric, jsonEncoder);
             jsonEncoder.flush();
 
+            metricSent.increment();
             kafkaEgress.send(resourceInfo.getTenantId(), type, out.toString(StandardCharsets.UTF_8.name()));
 
         } catch (IOException e) {
