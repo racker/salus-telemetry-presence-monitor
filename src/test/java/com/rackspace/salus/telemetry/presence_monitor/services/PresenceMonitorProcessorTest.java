@@ -14,7 +14,7 @@ import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 
 import java.net.URI;
@@ -29,7 +29,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.convert.DurationUnit;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Configuration;
@@ -128,11 +127,11 @@ public class PresenceMonitorProcessorTest {
                 "\"start\":\"" + rangeStart + "\"," +
                 "\"end\":\"" + rangeEnd + "\"}");
 
-        PartitionEntry partitionEntry = p.getPartitionTable().get("id1");
-        assertEquals("range start should be all zeros", rangeStart, partitionEntry.getRangeMin());
-        assertEquals("range end should be all f's", rangeEnd, partitionEntry.getRangeMax());
+        PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
+        assertEquals("range start should be all zeros", rangeStart, partitionSlice.getRangeMin());
+        assertEquals("range end should be all f's", rangeEnd, partitionSlice.getRangeMax());
 
-        PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get("1");
+        PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get("1");
         assertEquals(activeResourceInfo, expectedEntry.getResourceInfo());
         assertEquals(true, expectedEntry.getActive());
         routerSem.acquire();
@@ -143,8 +142,8 @@ public class PresenceMonitorProcessorTest {
                 "\"end\":\"" + rangeEnd + "\"}");
 
         assertEquals(p.getPartitionTable().size(), 0);
-        assertEquals(partitionEntry.getExpectedWatch().getRunning(), false);
-        assertEquals(partitionEntry.getActiveWatch().getRunning(), false);
+        assertEquals(partitionSlice.getExpectedWatch().getRunning(), false);
+        assertEquals(partitionSlice.getActiveWatch().getRunning(), false);
     }
 
     @Test
@@ -157,8 +156,8 @@ public class PresenceMonitorProcessorTest {
 
         // wrap expected watch consumer to release a semaphore when done
         Semaphore expectedSem = new Semaphore(0);
-        BiConsumer<WatchResponse, PartitionEntry> originalExpectedConsumer = p.getExpectedWatchResponseConsumer();
-        BiConsumer<WatchResponse, PartitionEntry> newExpectedConsumer = (wr, pe) -> {
+        BiConsumer<WatchResponse, PartitionSlice> originalExpectedConsumer = p.getExpectedWatchResponseConsumer();
+        BiConsumer<WatchResponse, PartitionSlice> newExpectedConsumer = (wr, pe) -> {
             originalExpectedConsumer.accept(wr, pe);
             expectedSem.release();
         };
@@ -166,8 +165,8 @@ public class PresenceMonitorProcessorTest {
 
         // wrap active watch consumer to release a semaphore when done
         Semaphore activeSem = new Semaphore(0);
-        BiConsumer<WatchResponse, PartitionEntry> originalActiveConsumer = p.getActiveWatchResponseConsumer();
-        BiConsumer<WatchResponse, PartitionEntry> newActiveConsumer = (wr, pe) -> {
+        BiConsumer<WatchResponse, PartitionSlice> originalActiveConsumer = p.getActiveWatchResponseConsumer();
+        BiConsumer<WatchResponse, PartitionSlice> newActiveConsumer = (wr, pe) -> {
             originalActiveConsumer.accept(wr, pe);
             activeSem.release();
         };
@@ -178,9 +177,9 @@ public class PresenceMonitorProcessorTest {
                 "\"start\":\"" + rangeStart + "\"," +
                 "\"end\":\"" + rangeEnd + "\"}");
 
-        PartitionEntry partitionEntry = p.getPartitionTable().get("id1");
+        PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
         assertEquals("No resources exist yet so expected table should be empty",
-                partitionEntry.getExpectedTable().size(), 0);
+                partitionSlice.getExpectedTable().size(), 0);
 
         // Now generate an expected watch and wait for the sem
         client.getKVClient().put(
@@ -189,11 +188,11 @@ public class PresenceMonitorProcessorTest {
         expectedSem.acquire();
 
         assertEquals("The watch should have added one entry",
-                partitionEntry.getExpectedTable().size(), 1);
+                partitionSlice.getExpectedTable().size(), 1);
         assertEquals("Entry should be inactive",
-                partitionEntry.getExpectedTable().get("1").getActive(), false);
+                partitionSlice.getExpectedTable().get("1").getActive(), false);
         assertEquals(expectedResourceInfo,
-                partitionEntry.getExpectedTable().get("1").getResourceInfo());
+                partitionSlice.getExpectedTable().get("1").getResourceInfo());
 
 
         // Now generate an active watch and wait for the sem
@@ -203,25 +202,25 @@ public class PresenceMonitorProcessorTest {
         activeSem.acquire();
 
         assertEquals("Entry should be active",
-                partitionEntry.getExpectedTable().get("1").getActive(), true);
+                partitionSlice.getExpectedTable().get("1").getActive(), true);
         assertEquals(activeResourceInfo,
-                partitionEntry.getExpectedTable().get("1").getResourceInfo());
-        verify(metricRouter).route(partitionEntry.getExpectedTable().get("1"), KafkaMessageType.EVENT);
+                partitionSlice.getExpectedTable().get("1").getResourceInfo());
+        verify(metricRouter).route(partitionSlice.getExpectedTable().get("1"), KafkaMessageType.EVENT);
 
         // Now delete active entry and see it go inactive
         client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
         activeSem.acquire();
 
         assertEquals("Entry should be inactive",
-                partitionEntry.getExpectedTable().get("1").getActive(), false);
+                partitionSlice.getExpectedTable().get("1").getActive(), false);
         assertEquals(activeResourceInfo,
-                partitionEntry.getExpectedTable().get("1").getResourceInfo());
+                partitionSlice.getExpectedTable().get("1").getResourceInfo());
 
         // Now delete expected entry and see it removed from the table
         client.getKVClient().delete(ByteSequence.fromString("/resources/expected/1"));
         expectedSem.acquire();
 
         assertEquals("Entry should be gone",
-                partitionEntry.getExpectedTable().containsKey("1"), false);
+                partitionSlice.getExpectedTable().containsKey("1"), false);
     }
 }

@@ -24,7 +24,7 @@ import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
 import com.rackspace.salus.telemetry.model.EnvoySummary;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class MetricRouter {
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
     }
 
-    public void route(PartitionEntry.ExpectedEntry expectedEntry, KafkaMessageType type) {
+    public void route(PartitionSlice.ExpectedEntry expectedEntry, KafkaMessageType type) {
         ResourceInfo resourceInfo = expectedEntry.getResourceInfo();
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();

@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
@@ -70,7 +70,7 @@ public class MetricRouterTest {
 
     private Client client;
 
-    private PartitionEntry.ExpectedEntry expectedEntry;
+    private PartitionSlice.ExpectedEntry expectedEntry;
     @Before
     public void setUp() throws Exception {
       final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
@@ -81,7 +81,7 @@ public class MetricRouterTest {
         String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
                 "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
-        expectedEntry = objectMapper.readValue(expectedEntryString, PartitionEntry.ExpectedEntry.class);
+        expectedEntry = objectMapper.readValue(expectedEntryString, PartitionSlice.ExpectedEntry.class);
 
     }
 

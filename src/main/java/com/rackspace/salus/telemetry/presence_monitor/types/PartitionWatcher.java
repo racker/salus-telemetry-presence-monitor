@@ -18,15 +18,15 @@ public class PartitionWatcher {
     final ThreadPoolTaskScheduler taskScheduler;
     final String prefix;
     final Long revision;
-    final PartitionEntry partitionEntry;
-    final BiConsumer<WatchResponse, PartitionEntry> watchResponseConsumer;
+    final PartitionSlice partitionSlice;
+    final BiConsumer<WatchResponse, PartitionSlice> watchResponseConsumer;
     final EnvoyResourceManagement envoyResourceManagement;
     Watch.Watcher watcher;
     Boolean running = false;
 
     public void start() {
         watcher = envoyResourceManagement.getWatchOverRange(prefix,
-                partitionEntry.getRangeMin(), partitionEntry.getRangeMax(), revision);
+                partitionSlice.getRangeMin(), partitionSlice.getRangeMax(), revision);
 
         taskScheduler.submit(() -> {
             running = true;
@@ -35,7 +35,7 @@ public class PartitionWatcher {
                 try {
                     final WatchResponse watchResponse = watcher.listen();
                     if (running) {
-                        watchResponseConsumer.accept(watchResponse, partitionEntry);
+                        watchResponseConsumer.accept(watchResponse, partitionSlice);
                     }
                 } catch (ClosedClientException e) {
                     log.debug("Stopping watching of {}", name);

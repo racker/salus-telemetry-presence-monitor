@@ -1,6 +1,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import lombok.Data;
@@ -8,8 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @Slf4j
 public class MetricExporter extends TimerTask {
-    ConcurrentHashMap<String, PartitionEntry> partitionTable;
+    ConcurrentHashMap<String, PartitionSlice> partitionTable;
     private MetricRouter metricRouter;
     private PresenceMonitorProperties presenceMonitorProperties;
     @Autowired
@@ -32,8 +30,8 @@ public class MetricExporter extends TimerTask {
         while (true) {
             log.info("Starting exporter iteration.");
             startTime = System.currentTimeMillis();
-            partitionTable.entrySet().forEach(partitionEntry -> {
-                partitionEntry.getValue().getExpectedTable().forEach((id, expectedEntry) -> {
+            partitionTable.entrySet().forEach(partitionSlice -> {
+                partitionSlice.getValue().getExpectedTable().forEach((id, expectedEntry) -> {
                     metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
                 });
 

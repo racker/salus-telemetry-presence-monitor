@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionEntry;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
@@ -29,7 +29,7 @@ import java.util.function.BiConsumer;
 @Slf4j
 @Data
 public class PresenceMonitorProcessor implements WorkProcessor {
-    private ConcurrentHashMap<String, PartitionEntry> partitionTable;
+    private ConcurrentHashMap<String, PartitionSlice> partitionTable;
     private Client etcd;
     private ObjectMapper objectMapper;
     private EnvoyResourceManagement envoyResourceManagement;
@@ -62,7 +62,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             taskScheduler.submit(metricExporter);
             exporterStarted = true;
         }
-        PartitionEntry newEntry = new PartitionEntry();
+        PartitionSlice newSlice = new PartitionSlice();
         JsonNode workContent;
         try {
             workContent = objectMapper.readTree(content);
@@ -70,17 +70,17 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             log.error("Invalid content {}.  Skipping.", content);
             return;
         }
-        newEntry.setRangeMax(workContent.get("end").asText());
-        newEntry.setRangeMin(workContent.get("start").asText());
+        newSlice.setRangeMax(workContent.get("end").asText());
+        newSlice.setRangeMin(workContent.get("start").asText());
 
         // Get the expected entries
-        GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newEntry.getRangeMin(),
-                newEntry.getRangeMax()).join();
+        GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newSlice.getRangeMin(),
+                newSlice.getRangeMax()).join();
         expectedResponse.getKvs().forEach(kv -> {
             // Create an entry for the kv
             String k = getExpectedId(kv);
             ResourceInfo resourceInfo;
-            PartitionEntry.ExpectedEntry expectedEntry = new PartitionEntry.ExpectedEntry();
+            PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
             try {
                 resourceInfo = objectMapper.readValue(kv.getValue().getBytes(), ResourceInfo.class);
             } catch (IOException e) {
@@ -89,19 +89,19 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             }
             expectedEntry.setResourceInfo(resourceInfo);
             expectedEntry.setActive(false);
-            newEntry.getExpectedTable().put(k, expectedEntry);
+            newSlice.getExpectedTable().put(k, expectedEntry);
         });
 
         // Get the active  entries
-        GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newEntry.getRangeMin(),
-                newEntry.getRangeMax()).join();
+        GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newSlice.getRangeMin(),
+                newSlice.getRangeMax()).join();
         activeResponse.getKvs().forEach(activeKv -> {
             // Update entry for the kv
             String activeKey = getExpectedId(activeKv);
-            PartitionEntry.ExpectedEntry entry = newEntry.getExpectedTable().get(activeKey);
+            PartitionSlice.ExpectedEntry entry = newSlice.getExpectedTable().get(activeKey);
             if (entry == null) {
                 log.warn("Entry is null for key {}", activeKey);
-                entry = new PartitionEntry.ExpectedEntry();
+                entry = new PartitionSlice.ExpectedEntry();
             }
             entry.setActive(true);
             ResourceInfo resourceInfo;
@@ -114,35 +114,35 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             entry.setResourceInfo(resourceInfo);
         });
 
-        newEntry.setExpectedWatch(new PartitionWatcher("expected-" + id,
+        newSlice.setExpectedWatch(new PartitionWatcher("expected-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_EXPECTED,
                 expectedResponse.getHeader().getRevision(),
-                newEntry, expectedWatchResponseConsumer,
+                newSlice, expectedWatchResponseConsumer,
                 envoyResourceManagement));
-        newEntry.getExpectedWatch().start();
+        newSlice.getExpectedWatch().start();
 
-        newEntry.setActiveWatch(new PartitionWatcher("active-" + id,
+        newSlice.setActiveWatch(new PartitionWatcher("active-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
                 activeResponse.getHeader().getRevision(),
-                newEntry, activeWatchResponseConsumer,
+                newSlice, activeWatchResponseConsumer,
                 envoyResourceManagement));
-        newEntry.getActiveWatch().start();
+        newSlice.getActiveWatch().start();
 
-        partitionTable.put(id, newEntry);
+        partitionTable.put(id, newSlice);
 
     }
 
 
     // Handle watch events from the expected keys
-    BiConsumer<WatchResponse, PartitionEntry> expectedWatchResponseConsumer = (watchResponse, partitionEntry) ->
+    BiConsumer<WatchResponse, PartitionSlice> expectedWatchResponseConsumer = (watchResponse, partitionSlice) ->
         watchResponse.getEvents().forEach(event -> {
             String eventKey;
             ResourceInfo resourceInfo;
-            PartitionEntry.ExpectedEntry watchEntry;
+            PartitionSlice.ExpectedEntry watchEntry;
             if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
                 // add new entry
                 eventKey = getExpectedId(event.getKeyValue());
-                watchEntry = new PartitionEntry.ExpectedEntry();
+                watchEntry = new PartitionSlice.ExpectedEntry();
                 try {
                     resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
                 } catch (IOException e) {
@@ -151,12 +151,12 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 }
                 watchEntry.setResourceInfo(resourceInfo);
                 watchEntry.setActive(false);
-                partitionEntry.getExpectedTable().put(eventKey, watchEntry);
+                partitionSlice.getExpectedTable().put(eventKey, watchEntry);
             } else {
                 // Delete old entry
                 eventKey = getExpectedId(event.getPrevKV());
 
-                if (partitionEntry.getExpectedTable().remove(eventKey) == null) {
+                if (partitionSlice.getExpectedTable().remove(eventKey) == null) {
                     log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
                 }
 
@@ -165,7 +165,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
 
     // Handle watch events from the active keys
-    BiConsumer<WatchResponse, PartitionEntry> activeWatchResponseConsumer = (watchResponse, partitionEntry) ->
+    BiConsumer<WatchResponse, PartitionSlice> activeWatchResponseConsumer = (watchResponse, partitionSlice) ->
         watchResponse.getEvents().forEach(event -> {
             String eventKey;
             ResourceInfo resourceInfo;
@@ -176,8 +176,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             } else {
                 eventKey = getExpectedId(event.getPrevKV());
             }
-            if (partitionEntry.getExpectedTable().containsKey(eventKey)) {
-                PartitionEntry.ExpectedEntry expectedEntry = partitionEntry.getExpectedTable().get(eventKey);
+            if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
+                PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
                 if (expectedEntry.getActive() != activeValue) {
                     expectedEntry.setActive(activeValue);
                     metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
@@ -207,11 +207,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     @Override
     public void stop(String id, String content) {
         log.info("Stopping work on id={}, content={}", id, content);
-        PartitionEntry entry = partitionTable.get(id);
-        if (entry != null) {
+        PartitionSlice slice = partitionTable.get(id);
+        if (slice != null) {
             partitionTable.remove(id);
-            entry.getActiveWatch().stop();
-            entry.getExpectedWatch().stop();
+            slice.getActiveWatch().stop();
+            slice.getExpectedWatch().stop();
         }
     }
 }
