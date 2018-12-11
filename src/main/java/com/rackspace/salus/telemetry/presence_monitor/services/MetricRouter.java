@@ -76,12 +76,12 @@ public class MetricRouter {
         log.info("routing {}", resourceKey);
         EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
         if (envoySummary == null) {
-            log.warn("envoySummary not found for {}, {]", tenantId, envoyId);
+            log.warn("envoySummary not found for {}, {}", tenantId, envoyId);
             envoyLabels = Collections.emptyMap();
         } else {
             envoyLabels = envoySummary.getLabels();
             if (envoyLabels == null) {
-                log.warn("labels not found for {}, {]", tenantId, envoyId);
+                log.warn("labels not found for {}, {}", tenantId, envoyId);
             }
         }
         Map<String, Long> iMap = new HashMap<>();
