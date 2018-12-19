@@ -57,6 +57,9 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricRouter metricRouter;
 
+    @MockBean
+    SimpleMeterRegistry simpleMeterRegistry;
+
     private ThreadPoolTaskScheduler taskScheduler;
 
     private EnvoyResourceManagement envoyResourceManagement;
