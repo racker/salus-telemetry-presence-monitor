@@ -101,7 +101,7 @@ public class MetricRouter {
             .setTimestamp(universalTimestampFormatter.format(timestamp))
             .setDeviceMetadata(envoyLabels)
             .setCollectionMetadata(Collections.emptyMap())
-            .setMonitoringSystem(MonitoringSystem.RMII)
+            .setMonitoringSystem(MonitoringSystem.SALUS)
             .setSystemMetadata(Collections.singletonMap("envoyId", envoyId))
             .setCollectionTarget(resourceKey)
             .setCollectionName("presence_monitor")
