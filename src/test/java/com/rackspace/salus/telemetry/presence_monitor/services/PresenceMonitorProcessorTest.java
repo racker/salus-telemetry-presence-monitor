@@ -17,6 +17,7 @@ import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProp
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Duration;
@@ -31,6 +32,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -43,7 +45,10 @@ public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
     public static class TestConfig {
-
+        @Bean
+        MeterRegistry getMeterRegistry() {
+            return new SimpleMeterRegistry();
+        }
     }
 
     @Rule
@@ -57,7 +62,7 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricRouter metricRouter;
 
-    @MockBean
+    @Autowired
     SimpleMeterRegistry simpleMeterRegistry;
 
     private ThreadPoolTaskScheduler taskScheduler;
@@ -101,7 +106,7 @@ public class PresenceMonitorProcessorTest {
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
         PresenceMonitorProperties presenceMonitorProperties = new PresenceMonitorProperties();
         presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
-        metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, new SimpleMeterRegistry());
+        metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
     }
 
 
@@ -124,7 +129,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry());
+                simpleMeterRegistry);
 
 
         p.start("id1", "{" +
