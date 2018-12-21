@@ -75,7 +75,7 @@ public class PresenceMonitorProcessorTest {
     KeyHashing hashing;
 
     private String expectedResourceInfoString =
-            "{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
+            "{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
                     "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
 
