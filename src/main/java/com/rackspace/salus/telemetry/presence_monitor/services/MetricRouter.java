@@ -76,7 +76,7 @@ public class MetricRouter {
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
         String resourceKey = String.format("%s:%s:%s", tenantId,
-            resourceInfo.getIdentifier(), resourceInfo.getIdentifierValue());
+            resourceInfo.getIdentifierName(), resourceInfo.getIdentifierValue());
         Map<String, String> envoyLabels;
         log.info("routing {}", resourceKey);
         EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();

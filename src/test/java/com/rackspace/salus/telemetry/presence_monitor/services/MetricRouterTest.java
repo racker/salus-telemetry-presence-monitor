@@ -77,7 +77,7 @@ public class MetricRouterTest {
               .collect(Collectors.toList());
       client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
       metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry());
-        String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifier\":\"os\",\"identifierValue\":\"LINUX\"," +
+        String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"," +
                 "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
         expectedEntry = objectMapper.readValue(expectedEntryString, PartitionSlice.ExpectedEntry.class);
@@ -87,7 +87,7 @@ public class MetricRouterTest {
     @Test
     public void testRouteMetric() {
         String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},  " +
-                "\"identifier\":\"os\"}";
+                "\"identifierName\":\"os\"}";
         client.getKVClient().put(
                 ByteSequence.fromString("/tenants/123456/envoysById/abcde"),
                 ByteSequence.fromString(envoyString)).join();
