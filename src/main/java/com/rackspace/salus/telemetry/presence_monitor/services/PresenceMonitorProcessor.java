@@ -97,6 +97,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         // Get the expected entries
         GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newSlice.getRangeMin(),
                 newSlice.getRangeMax()).join();
+        log.debug("Found {} expected envoys", expectedResponse.getCount());
         expectedResponse.getKvs().forEach(kv -> {
             // Create an entry for the kv
             String k = getExpectedId(kv);

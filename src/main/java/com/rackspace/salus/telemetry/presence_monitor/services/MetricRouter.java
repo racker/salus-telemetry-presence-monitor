@@ -77,18 +77,15 @@ public class MetricRouter {
         String envoyId = resourceInfo.getEnvoyId();
         String resourceKey = String.format("%s:%s:%s", tenantId,
             resourceInfo.getIdentifierName(), resourceInfo.getIdentifierValue());
-        Map<String, String> envoyLabels;
-        log.info("routing {}", resourceKey);
-        EnvoySummary envoySummary = retrieveEnvoySummaryById(tenantId, envoyId).join();
-        if (envoySummary == null) {
-            log.warn("envoySummary not found for {}, {}", tenantId, envoyId);
-            envoyLabels = Collections.emptyMap();
+        Map<String, String> envoyLabels = resourceInfo.getLabels();
+        Map<String, String> systemMetadata;
+        if (envoyId == null) {
+            systemMetadata = Collections.emptyMap();
         } else {
-            envoyLabels = envoySummary.getLabels();
-            if (envoyLabels == null) {
-                log.warn("labels not found for {}, {}", tenantId, envoyId);
-            }
+            systemMetadata = Collections.singletonMap("envoyId", envoyId);
         }
+        log.info("routing {}", resourceKey);
+
         Map<String, Long> iMap = new HashMap<>();
         // This is the name of the agent health metric used in v1:
         iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
@@ -102,7 +99,7 @@ public class MetricRouter {
             .setDeviceMetadata(envoyLabels)
             .setCollectionMetadata(Collections.emptyMap())
             .setMonitoringSystem(MonitoringSystem.SALUS)
-            .setSystemMetadata(Collections.singletonMap("envoyId", envoyId))
+            .setSystemMetadata(systemMetadata)
             .setCollectionTarget(resourceKey)
             .setCollectionName("presence_monitor")
             .setFvalues(Collections.emptyMap())
@@ -127,27 +124,5 @@ public class MetricRouter {
             log.warn("Failed to Avro encode avroMetric={} original={}", externalMetric, resourceInfo, e);
             throw new RuntimeException("Failed to Avro encode metric", e);
         }
-    }
-
-    private CompletableFuture<EnvoySummary> retrieveEnvoySummaryById(String tenantId, String envoyInstanceId) {
-        return etcd.getKVClient().get(
-                buildKey(Keys.FMT_ENVOYS_BY_ID,
-                        tenantId, envoyInstanceId))
-                .thenApply(getResponse -> {
-                    if (getResponse.getCount() == 0) {
-                        log.warn("Unable to locate tenant={} envoyInstance={} in order to find labels",
-                                tenantId, envoyInstanceId);
-                        return null;
-                    } else {
-                        try {
-                            return objectMapper.readValue(getResponse.getKvs().get(0)
-                                    .getValue().getBytes(), EnvoySummary.class);
-                        } catch (IOException e) {
-                            log.warn("Unable to read envoy data for {}, {}", tenantId, envoyInstanceId);
-                            return null;
-                        }
-
-                    }
-                });
     }
 }
