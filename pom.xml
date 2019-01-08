@@ -146,4 +146,12 @@
         </profile>
     </profiles>
 
+<distributionManagement>
+    <snapshotRepository>
+        <id>snapshots</id>
+        <name>artifactory-artifactory-0-snapshots</name>
+        <url>https://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-snapshot-local</url>
+    </snapshotRepository>
+</distributionManagement>
+
 </project>
