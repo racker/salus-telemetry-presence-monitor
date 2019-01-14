@@ -9,8 +9,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.common.workpart.WorkProcessor;
+import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
+import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
@@ -20,6 +22,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import lombok.Data;
@@ -44,12 +47,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter startedWork;
     private final Counter updatedWork;
     private final Counter stoppedWork;
+    private final KeyHashing hashing;
+
 
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry) {
+                             MeterRegistry meterRegistry, KeyHashing hashing) {
         this.meterRegistry = meterRegistry;
         partitionTable = new ConcurrentHashMap<>();
         this.objectMapper = objectMapper;
@@ -58,6 +63,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
         this.metricExporter.setPartitionTable(partitionTable);
+        this.hashing = hashing;
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
         updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
@@ -68,6 +74,13 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private String getExpectedId(KeyValue kv) {
         String[] strings = kv.getKey().toStringUtf8().split("/");
         return strings[strings.length - 1];
+    }
+    List<Resource> getResources(PartitionSlice slice){
+
+    }
+
+    private ResourceInfo convert(Resource resource) {
+       return new ResourceInfo();
     }
 
     @Override
@@ -95,23 +108,19 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMin(workContent.get("start").asText());
 
         // Get the expected entries
-        GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newSlice.getRangeMin(),
-                newSlice.getRangeMax()).join();
-        log.debug("Found {} expected envoys", expectedResponse.getCount());
-        expectedResponse.getKvs().forEach(kv -> {
-            // Create an entry for the kv
-            String k = getExpectedId(kv);
-            ResourceInfo resourceInfo;
+        List<Resource> resources = getResources(newSlice);
+        log.debug("Found {} expected envoys", resources.size());
+        resources.forEach(resource -> {
+            // Create an entry for the resource
+            ResourceInfo resourceInfo = convert(resource);
+            String resourceKey = String.format("%s:%s:%s",
+                resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
+                resourceInfo.getIdentifierValue());
+            String hash = hashing.hash(resourceKey);
             PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
-            try {
-                resourceInfo = objectMapper.readValue(kv.getValue().getBytes(), ResourceInfo.class);
-            } catch (IOException e) {
-                log.warn("Failed to parse ResourceInfo", e);
-                return;
-            }
             expectedEntry.setResourceInfo(resourceInfo);
             expectedEntry.setActive(false);
-            newSlice.getExpectedTable().put(k, expectedEntry);
+            newSlice.getExpectedTable().put(hash, expectedEntry);
         });
 
         // Get the active  entries
@@ -135,13 +144,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             }
             entry.setResourceInfo(resourceInfo);
         });
-
-        newSlice.setExpectedWatch(new PartitionWatcher("expected-" + id,
-                taskScheduler, Keys.FMT_RESOURCES_EXPECTED,
-                expectedResponse.getHeader().getRevision(),
-                newSlice, expectedWatchResponseConsumer,
-                envoyResourceManagement));
-        newSlice.getExpectedWatch().start();
 
         newSlice.setActiveWatch(new PartitionWatcher("active-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
@@ -237,7 +239,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         if (slice != null) {
             partitionTable.remove(id);
             slice.getActiveWatch().stop();
-            slice.getExpectedWatch().stop();
         }
     }
 }

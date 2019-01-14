@@ -16,6 +16,7 @@ public class PartitionSlice {
     }
     String rangeMin;
     String rangeMax;
+    // not a partition watcher any more/ kafka
     PartitionWatcher expectedWatch;
     PartitionWatcher activeWatch;
     ConcurrentHashMap<String, ExpectedEntry> expectedTable;
