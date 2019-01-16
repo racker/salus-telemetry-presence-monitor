@@ -15,11 +15,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import com.coreos.jetcd.Client;
+import org.springframework.web.client.RestTemplate;
 
 
 @Configuration
 @Import({EtcdConfig.class, EtcdProperties.class, WorkerProperties.class,
-        KeyHashing.class, EnvoyResourceManagement.class, EncoderFactory.class})
+        KeyHashing.class, EnvoyResourceManagement.class, EncoderFactory.class, RestTemplate.class})
 public class SpringConfig {
     
     @Autowired
