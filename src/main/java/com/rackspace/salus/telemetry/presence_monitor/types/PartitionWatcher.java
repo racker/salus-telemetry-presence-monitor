@@ -9,11 +9,9 @@ import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.stereotype.Component;
 
 @Data
 @Slf4j
-@Component
 public class PartitionWatcher {
     final String name;
     final ThreadPoolTaskScheduler taskScheduler;
