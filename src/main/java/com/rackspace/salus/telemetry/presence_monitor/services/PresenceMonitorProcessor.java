@@ -1,6 +1,7 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.kv.GetResponse;
@@ -20,7 +21,11 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,8 +33,10 @@ import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 @Slf4j
@@ -48,13 +55,16 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter updatedWork;
     private final Counter stoppedWork;
     private final KeyHashing hashing;
-
+    private final PresenceMonitorProperties props;
+    private final RestTemplate restTemplate;
+    static final String SSEHdr = "data:";
 
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry, KeyHashing hashing) {
+                             MeterRegistry meterRegistry, KeyHashing hashing,
+                             PresenceMonitorProperties props, RestTemplate restTemplate) {
         this.meterRegistry = meterRegistry;
         partitionTable = new ConcurrentHashMap<>();
         this.objectMapper = objectMapper;
@@ -64,6 +74,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.metricExporter = metricExporter;
         this.metricExporter.setPartitionTable(partitionTable);
         this.hashing = hashing;
+        this.props = props;
+        this.restTemplate = restTemplate;
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
         updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
@@ -75,12 +87,43 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         String[] strings = kv.getKey().toStringUtf8().split("/");
         return strings[strings.length - 1];
     }
-    List<Resource> getResources(PartitionSlice slice){
-
+    String genExpectedId(ResourceInfo resourceInfo) {
+        String resourceKey = String.format("%s:%s:%s",
+            resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
+            resourceInfo.getIdentifierValue());
+        return hashing.hash(resourceKey);
     }
 
-    private ResourceInfo convert(Resource resource) {
-       return new ResourceInfo();
+    private List<Resource> getResources(){
+        List<Resource> resources = new ArrayList<>();
+        
+        restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
+        }, response -> {
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
+            String line;
+                while ((line = bufferedReader.readLine()) != null) {
+                    if (line.length() > SSEHdr.length())
+                        try {
+                           Resource resource;
+                            // remove the "data:" hdr
+                            resource = objectMapper.readValue(line.substring(SSEHdr.length()), Resource.class);
+                            resources.add(resource);
+                        } catch (IOException e) {
+                            log.warn("Failed to parse Resource", e);
+                        }
+                }
+            return response;
+        });
+        return resources;
+    }
+
+    static ResourceInfo convert(Resource resource) {
+        ResourceInfo ri = new ResourceInfo();
+        ri.setIdentifierName(resource.getResourceIdentifier().getIdentifierName());
+        ri.setIdentifierValue(resource.getResourceIdentifier().getIdentifierValue());
+        ri.setLabels(resource.getLabels());
+        ri.setTenantId(resource.getTenantId());
+        return ri;
     }
 
     @Override
@@ -108,19 +151,19 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMin(workContent.get("start").asText());
 
         // Get the expected entries
-        List<Resource> resources = getResources(newSlice);
+        List<Resource> resources = getResources();
         log.debug("Found {} expected envoys", resources.size());
         resources.forEach(resource -> {
             // Create an entry for the resource
             ResourceInfo resourceInfo = convert(resource);
-            String resourceKey = String.format("%s:%s:%s",
-                resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
-                resourceInfo.getIdentifierValue());
-            String hash = hashing.hash(resourceKey);
-            PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
-            expectedEntry.setResourceInfo(resourceInfo);
-            expectedEntry.setActive(false);
-            newSlice.getExpectedTable().put(hash, expectedEntry);
+            String expectedId = genExpectedId(resourceInfo);
+            if ((expectedId.compareTo(newSlice.getRangeMin()) >= 0) &&
+                    expectedId.compareTo(newSlice.getRangeMax()) <= 0) {
+                PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
+                expectedEntry.setResourceInfo(resourceInfo);
+                expectedEntry.setActive(false);
+                newSlice.getExpectedTable().put(expectedId, expectedEntry);
+            }
         });
 
         // Get the active  entries

@@ -35,4 +35,5 @@ public class PresenceMonitorProperties {
     Map<KafkaMessageType, String> kafkaTopics;
     @DurationUnit(ChronoUnit.SECONDS)
     Duration exportPeriod;
+    String resourceManagerUrl;
 }
