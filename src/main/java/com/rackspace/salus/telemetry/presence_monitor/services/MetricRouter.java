@@ -18,15 +18,11 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import static com.rackspace.salus.telemetry.etcd.EtcdUtils.buildKey;
-
 import com.coreos.jetcd.Client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
-import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.EnvoySummary;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
@@ -35,12 +31,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.io.EncoderFactory;
@@ -57,15 +51,17 @@ public class MetricRouter {
     private final KafkaEgress kafkaEgress;
     private final Client etcd;
     private final ObjectMapper objectMapper;
+    private final TimestampProvider timestampProvider;
     private final Counter metricSent;
 
     @Autowired
     public MetricRouter(EncoderFactory avroEncoderFactory, KafkaEgress kafkaEgress, Client etcd,
-        ObjectMapper objectMapper, MeterRegistry meterRegistry) {
+        ObjectMapper objectMapper, MeterRegistry meterRegistry, TimestampProvider timestampProvider) {
         this.avroEncoderFactory = avroEncoderFactory;
         this.kafkaEgress = kafkaEgress;
         this.etcd = etcd;
         this.objectMapper = objectMapper;
+        this.timestampProvider = timestampProvider;
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
 
         metricSent = meterRegistry.counter("metricSent");
@@ -90,12 +86,10 @@ public class MetricRouter {
         // This is the name of the agent health metric used in v1:
         iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
 
-        final Instant timestamp = Instant.ofEpochMilli(System.currentTimeMillis());
-
         final ExternalMetric externalMetric = ExternalMetric.newBuilder()
             .setAccountType(AccountType.RCN)
             .setAccount(resourceInfo.getTenantId())
-            .setTimestamp(universalTimestampFormatter.format(timestamp))
+            .setTimestamp(universalTimestampFormatter.format(timestampProvider.getCurrentInstant()))
             .setDeviceMetadata(envoyLabels)
             .setCollectionMetadata(Collections.emptyMap())
             .setMonitoringSystem(MonitoringSystem.SALUS)

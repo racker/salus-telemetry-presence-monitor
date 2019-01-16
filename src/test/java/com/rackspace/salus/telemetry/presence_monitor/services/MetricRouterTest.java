@@ -19,9 +19,9 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
@@ -31,8 +31,8 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
@@ -42,17 +42,11 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 public class MetricRouterTest {
-
-    @Configuration
-    @Import({EncoderFactory.class})
-    static class TestConfig { }
 
     @Rule
     public final EtcdClusterResource etcd = new EtcdClusterResource("MetricRouterTest", 1);
@@ -61,6 +55,9 @@ public class MetricRouterTest {
 
     @MockBean
     KafkaEgress kafkaEgress;
+
+    @MockBean
+    TimestampProvider timestampProvider;
 
     private MetricRouter metricRouter;
 
@@ -76,7 +73,11 @@ public class MetricRouterTest {
               .map(URI::toString)
               .collect(Collectors.toList());
       client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
-      metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry());
+
+      when(timestampProvider.getCurrentInstant())
+          .thenReturn(Instant.EPOCH);
+
+      metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry(), timestampProvider);
         String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"," +
                 "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
@@ -86,17 +87,15 @@ public class MetricRouterTest {
 
     @Test
     public void testRouteMetric() {
-        String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},  " +
+        String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},  " +
                 "\"identifierName\":\"os\"}";
         client.getKVClient().put(
                 ByteSequence.fromString("/tenants/123456/envoysById/abcde"),
                 ByteSequence.fromString(envoyString)).join();
 
-       Pattern p = Pattern.compile("\\{\"timestamp\":\".*\",\"accountType\":\"RCN\",\"account\":\"123456\",\"device\":\"\",\"deviceLabel\":\"\",\"deviceMetadata\":\\{\"os\":\"LINUX\",\"arch\":\"X86_64\"\\},\"monitoringSystem\":\"SALUS\",\"systemMetadata\":\\{\"envoyId\":\"abcde\"\\},\"collectionName\":\"presence_monitor\",\"collectionLabel\":\"\",\"collectionTarget\":\"123456:os:LINUX\",\"collectionMetadata\":\\{\\},\"ivalues\":\\{\"connected\":1\\},\"fvalues\":\\{\\},\"svalues\":\\{\\},\"units\":\\{\\}\\}");
-
         metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
 
         verify(kafkaEgress).send(eq("123456"), eq(KafkaMessageType.METRIC),
-                argThat(t -> p.matcher(t).matches()));
+                eq("{\"timestamp\":\"1970-01-01T00:00:00Z\",\"accountType\":\"RCN\",\"account\":\"123456\",\"device\":\"\",\"deviceLabel\":\"\",\"deviceMetadata\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"monitoringSystem\":\"SALUS\",\"systemMetadata\":{\"envoyId\":\"abcde\"},\"collectionName\":\"presence_monitor\",\"collectionLabel\":\"\",\"collectionTarget\":\"123456:os:LINUX\",\"collectionMetadata\":{},\"ivalues\":{\"connected\":1},\"fvalues\":{},\"svalues\":{},\"units\":{}}"));
      }
 }
