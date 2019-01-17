@@ -25,13 +25,16 @@ import io.micrometer.core.instrument.Tag;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.iterators.EntrySetMapIterator;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -57,6 +60,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final KeyHashing hashing;
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
+    private KafkaConsumer<String, String> consumer;
+
     static final String SSEHdr = "data:";
 
     @Autowired
@@ -76,6 +81,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.hashing = hashing;
         this.props = props;
         this.restTemplate = restTemplate;
+        consumer = new KafkaConsumer<String, String>(props.getKafka());
+
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
         updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
@@ -93,7 +100,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             resourceInfo.getIdentifierValue());
         return hashing.hash(resourceKey);
     }
-
     private List<Resource> getResources(){
         List<Resource> resources = new ArrayList<>();
         
@@ -149,6 +155,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         }
         newSlice.setRangeMax(workContent.get("end").asText());
         newSlice.setRangeMin(workContent.get("start").asText());
+
+        //Set up kafka consumer
+        consumer.subscribe(Arrays.asList(props.getKafkaTopics().get("RESOURCE")));
+        consumer.seekToEnd(consumer.assignment());
 
         // Get the expected entries
         List<Resource> resources = getResources();
@@ -263,6 +273,22 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 log.warn("Failed to find ExpectedEntry to update {}", eventKey);
             }
         });
+    private void run() {
+        while (true) {
+            ConsumerRecords<String, String> records = consumer.poll(100);
+            for (ConsumerRecord<String, String> record : records)
+
+                for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
+                    PartitionSlice slice = e.getValue();
+                    if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
+                            (record.key().compareTo(slice.getRangeMax()) <= 0)) {
+                        updateSlice(slice, record.value());
+                    }
+                }
+        }
+    }
+
+    }
 
     @Override
     public void update(String id, String content) {
