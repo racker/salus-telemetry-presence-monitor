@@ -12,6 +12,8 @@ presence-monitor:
       telemetry.metrics.json
     EVENT:
       telemetry.events.json
+    RESOURCE:
+      telemetry.resources.json
   exportPeriod:
     5
   resourceManagerUrl:
@@ -24,4 +26,4 @@ worker:
 spring:
   main:
     web-environment:
-      true
+      false

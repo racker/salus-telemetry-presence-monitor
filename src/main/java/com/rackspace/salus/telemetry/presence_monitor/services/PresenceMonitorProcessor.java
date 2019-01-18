@@ -150,7 +150,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
-//            taskScheduler.submit(resourceUpdater);
+            taskScheduler.submit(resourceUpdater);
             exporterStarted = true;
         }
 
@@ -170,8 +170,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMin(workContent.get("start").asText());
 
         //  Seek to end before reading resource from manager
-//        consumer.subscribe(Arrays.asList(props.getKafkaTopics().get("RESOURCE")));
-//        consumer.seekToEnd(consumer.assignment());
+        String r = props.getKafkaTopics().get(KafkaMessageType.RESOURCE);
+        consumer.subscribe(Arrays.asList(r));
+        consumer.seekToEnd(consumer.assignment());
 
         // Get the expected entries
         List<Resource> resources = getResources();
