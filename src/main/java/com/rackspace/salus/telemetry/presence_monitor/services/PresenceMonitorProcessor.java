@@ -82,8 +82,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.metricExporter.setPartitionTable(partitionTable);
         this.hashing = hashing;
         this.props = props;
+        this.props.setKafka(fixupKeys(this.props.getKafka()));
         this.restTemplate = restTemplate;
-//        consumer = new KafkaConsumer<String, ResourceEvent>(props.getKafka());
+        consumer = new KafkaConsumer<String, ResourceEvent>(this.props.getKafka());
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
@@ -95,6 +96,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private String getExpectedId(KeyValue kv) {
         String[] strings = kv.getKey().toStringUtf8().split("/");
         return strings[strings.length - 1];
+    }
+
+    Map<String, Object> fixupKeys(Map<String, Object> props) {
+        HashMap<String, Object> fixedMap = new HashMap<>();
+        for(Map.Entry<String, Object> e : props.entrySet() ) {
+            fixedMap.put(e.getKey().replaceAll("-", "."), e.getValue());
+        }
+        return fixedMap;
     }
     String genExpectedId(ResourceInfo resourceInfo) {
         String resourceKey = String.format("%s:%s:%s",

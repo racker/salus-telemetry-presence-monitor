@@ -40,6 +40,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.*;
@@ -52,20 +53,11 @@ import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
 
 @RunWith(SpringRunner.class)
+// Adding this to force the read the yml files.  Is there a better way?
+//@PropertySource(value= {"classpath:application.yml"})
 @EnableAutoConfiguration
-@ComponentScan({"PresenceMonitorProperties.class"})
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    properties = {
-        "presence-monitor.resourceManagerUrl=xxyyzz",
-        "presence-monitor.export-period=4",
-        "presence-monitor.kafka-topics.LOG=telemetry.logs.json",
-        "presence-monitor.kafka.bootstrap.servers=localhost:9092",
-        "presence-monitor.kafka.group.id=presence.monitor",
-        "presence-monitor.kafka.value.deserializer: org.springframework.kafka.support.serializer.JsonDeerializer"
-    }
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 
-@ActiveProfiles("test")
 public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, RestTemplate.class})

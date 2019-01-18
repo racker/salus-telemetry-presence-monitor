@@ -1,8 +1,9 @@
 presence-monitor:
   kafka:
-    bootstrap.servers: localhost:9092
-    group.id: presence.monitor
-    value.deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    bootstrap-servers: localhost:9092
+    group-id: presence.monitor
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
     auto-offset-reset: latest
   kafka-topics:
     LOG:
