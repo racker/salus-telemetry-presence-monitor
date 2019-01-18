@@ -39,21 +39,33 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@EnableAutoConfiguration
+@ComponentScan({"PresenceMonitorProperties.class"})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE,
+    properties = {
+        "presence-monitor.resourceManagerUrl=xxyyzz",
+        "presence-monitor.export-period=4",
+        "presence-monitor.kafka-topics.LOG=telemetry.logs.json",
+        "presence-monitor.kafka.bootstrap.servers=localhost:9092",
+        "presence-monitor.kafka.group.id=presence.monitor",
+        "presence-monitor.kafka.value.deserializer: org.springframework.kafka.support.serializer.JsonDeerializer"
+    }
+)
 
+@ActiveProfiles("test")
 public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, RestTemplate.class})
@@ -106,6 +118,11 @@ public class PresenceMonitorProcessorTest {
     private String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
             rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
+    //@Autowired
+    //PresenceMonitorProcessorTest(PresenceMonitorProperties props) {
+    //    presenceMonitorProperties = props;
+    //}
+    @Autowired
     private PresenceMonitorProperties presenceMonitorProperties;
 
     @Mock
@@ -130,7 +147,6 @@ public class PresenceMonitorProcessorTest {
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
-        presenceMonitorProperties = new PresenceMonitorProperties();
         presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
         presenceMonitorProperties.setResourceManagerUrl("http://localhost/getResources");
         metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
@@ -184,73 +200,73 @@ public class PresenceMonitorProcessorTest {
         assertEquals(partitionSlice.getActiveWatch().getRunning(), false);
     }
 
-//     @Test
-//     public void testProcessorWatchConsumers() throws Exception {
-//         doNothing().when(metricRouter).route(any(), any());
+//    @Test
+    // public void testProcessorWatchConsumers() throws Exception {
+    //     doNothing().when(metricRouter).route(any(), any());
 
-//         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
-//                 envoyResourceManagement, taskScheduler, metricExporter,
-//                 new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplate);
-
-
-//         // wrap active watch consumer to release a semaphore when done
-//         Semaphore activeSem = new Semaphore(0);
-//         BiConsumer<WatchResponse, PartitionSlice> originalActiveConsumer = p.getActiveWatchResponseConsumer();
-//         BiConsumer<WatchResponse, PartitionSlice> newActiveConsumer = (wr, pe) -> {
-//             originalActiveConsumer.accept(wr, pe);
-//             activeSem.release();
-//         };
-//         p.setActiveWatchResponseConsumer(newActiveConsumer);
+    //     PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
+    //             envoyResourceManagement, taskScheduler, metricExporter,
+    //             new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplate);
 
 
-//         p.start("id1", "{" +
-//                 "\"start\":\"" + rangeStart + "\"," +
-//                 "\"end\":\"" + rangeEnd + "\"}");
-
-//         PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
-//         assertEquals("No resources exist yet so expected table should be empty",
-//                 partitionSlice.getExpectedTable().size(), 0);
-
-//         // Now generate an expected watch and wait for the sem
-//         client.getKVClient().put(
-//                 ByteSequence.fromString("/resources/expected/1"),
-//                 ByteSequence.fromString(expectedResourceInfoString));
-//         expectedSem.acquire();
-
-//         assertEquals("The watch should have added one entry",
-//                 partitionSlice.getExpectedTable().size(), 1);
-//         assertEquals("Entry should be inactive",
-//                 partitionSlice.getExpectedTable().get("1").getActive(), false);
-//         assertEquals(expectedResourceInfo,
-//                 partitionSlice.getExpectedTable().get("1").getResourceInfo());
+    //     // wrap active watch consumer to release a semaphore when done
+    //     Semaphore activeSem = new Semaphore(0);
+    //     BiConsumer<WatchResponse, PartitionSlice> originalActiveConsumer = p.getActiveWatchResponseConsumer();
+    //     BiConsumer<WatchResponse, PartitionSlice> newActiveConsumer = (wr, pe) -> {
+    //         originalActiveConsumer.accept(wr, pe);
+    //         activeSem.release();
+    //     };
+    //     p.setActiveWatchResponseConsumer(newActiveConsumer);
 
 
-//         // Now generate an active watch and wait for the sem
-//         client.getKVClient().put(
-//                 ByteSequence.fromString("/resources/active/1"),
-//                 ByteSequence.fromString(activeResourceInfoString));
-//         activeSem.acquire();
+    //     p.start("id1", "{" +
+    //             "\"start\":\"" + rangeStart + "\"," +
+    //             "\"end\":\"" + rangeEnd + "\"}");
 
-//         assertEquals("Entry should be active",
-//                 partitionSlice.getExpectedTable().get("1").getActive(), true);
-//         assertEquals(activeResourceInfo,
-//                 partitionSlice.getExpectedTable().get("1").getResourceInfo());
-//         verify(metricRouter).route(partitionSlice.getExpectedTable().get("1"), KafkaMessageType.EVENT);
+    //     PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
+    //     assertEquals("No resources exist yet so expected table should be empty",
+    //             partitionSlice.getExpectedTable().size(), 0);
 
-//         // Now delete active entry and see it go inactive
-//         client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
-//         activeSem.acquire();
+    //     // Now generate an expected watch and wait for the sem
+    //     client.getKVClient().put(
+    //             ByteSequence.fromString("/resources/expected/1"),
+    //             ByteSequence.fromString(expectedResourceInfoString));
+    //     expectedSem.acquire();
 
-//         assertEquals("Entry should be inactive",
-//                 partitionSlice.getExpectedTable().get("1").getActive(), false);
-//         assertEquals(activeResourceInfo,
-//                 partitionSlice.getExpectedTable().get("1").getResourceInfo());
+    //     assertEquals("The watch should have added one entry",
+    //             partitionSlice.getExpectedTable().size(), 1);
+    //     assertEquals("Entry should be inactive",
+    //             partitionSlice.getExpectedTable().get("1").getActive(), false);
+    //     assertEquals(expectedResourceInfo,
+    //             partitionSlice.getExpectedTable().get("1").getResourceInfo());
 
-//         // Now delete expected entry and see it removed from the table
-//         client.getKVClient().delete(ByteSequence.fromString("/resources/expected/1"));
-//         expectedSem.acquire();
 
-//         assertEquals("Entry should be gone",
-//                 partitionSlice.getExpectedTable().containsKey("1"), false);
-//     }
+    //     // Now generate an active watch and wait for the sem
+    //     client.getKVClient().put(
+    //             ByteSequence.fromString("/resources/active/1"),
+    //             ByteSequence.fromString(activeResourceInfoString));
+    //     activeSem.acquire();
+
+    //     assertEquals("Entry should be active",
+    //             partitionSlice.getExpectedTable().get("1").getActive(), true);
+    //     assertEquals(activeResourceInfo,
+    //             partitionSlice.getExpectedTable().get("1").getResourceInfo());
+    //     verify(metricRouter).route(partitionSlice.getExpectedTable().get("1"), KafkaMessageType.EVENT);
+
+    //     // Now delete active entry and see it go inactive
+    //     client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
+    //     activeSem.acquire();
+
+    //     assertEquals("Entry should be inactive",
+    //             partitionSlice.getExpectedTable().get("1").getActive(), false);
+    //     assertEquals(activeResourceInfo,
+    //             partitionSlice.getExpectedTable().get("1").getResourceInfo());
+
+    //     // Now delete expected entry and see it removed from the table
+    //     client.getKVClient().delete(ByteSequence.fromString("/resources/expected/1"));
+    //     expectedSem.acquire();
+
+    //     assertEquals("Entry should be gone",
+    //             partitionSlice.getExpectedTable().containsKey("1"), false);
+    // }
 }

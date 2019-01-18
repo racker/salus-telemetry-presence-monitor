@@ -83,7 +83,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.hashing = hashing;
         this.props = props;
         this.restTemplate = restTemplate;
-        consumer = new KafkaConsumer<String, ResourceEvent>(props.getKafka());
+//        consumer = new KafkaConsumer<String, ResourceEvent>(props.getKafka());
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
@@ -102,7 +102,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             resourceInfo.getIdentifierValue());
         return hashing.hash(resourceKey);
     }
-    private List<Resource> getResources(){
+    private synchronized List<Resource> getResources(){
         List<Resource> resources = new ArrayList<>();
         
         restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
@@ -141,7 +141,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
-            taskScheduler.submit(resourceUpdater);
+//            taskScheduler.submit(resourceUpdater);
             exporterStarted = true;
         }
 
@@ -160,12 +160,13 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMax(workContent.get("end").asText());
         newSlice.setRangeMin(workContent.get("start").asText());
 
-        //Set up kafka consumer
-        consumer.subscribe(Arrays.asList(props.getKafkaTopics().get("RESOURCE")));
-        consumer.seekToEnd(consumer.assignment());
+        //  Seek to end before reading resource from manager
+//        consumer.subscribe(Arrays.asList(props.getKafkaTopics().get("RESOURCE")));
+//        consumer.seekToEnd(consumer.assignment());
 
         // Get the expected entries
         List<Resource> resources = getResources();
+
         log.debug("Found {} expected envoys", resources.size());
         resources.forEach(resource -> {
             // Create an entry for the resource
@@ -246,21 +247,25 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 log.warn("Failed to find ExpectedEntry to update {}", eventKey);
             }
         });
+
     private Runnable resourceUpdater = () -> {
         while (true) {
             ConsumerRecords<String, ResourceEvent> records = consumer.poll(Duration.ofMillis(100));
-            for (ConsumerRecord<String, ResourceEvent> record : records)
-
-                for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
-                    PartitionSlice slice = e.getValue();
-                    if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
-                            (record.key().compareTo(slice.getRangeMax()) <= 0)) {
-                        updateSlice(slice, record.key(), record.value());
-                    }
-                }
+            handleRecords(records);
         }
     };
 
+    private synchronized void handleRecords(ConsumerRecords<String, ResourceEvent> records) {
+        for (ConsumerRecord<String, ResourceEvent> record : records) {
+            for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
+                PartitionSlice slice = e.getValue();
+                if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
+                        (record.key().compareTo(slice.getRangeMax()) <= 0)) {
+                    updateSlice(slice, record.key(), record.value());
+                }
+            }
+        }
+    }
     private void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent){
         ResourceInfo rinfo = convert(resourceEvent.getResource());
         if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {

@@ -2,7 +2,7 @@ presence-monitor:
   kafka:
     bootstrap.servers: localhost:9092
     group.id: presence.monitor
-    value.deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    value.deserializer: org.springframework.kafka.support.serializer.JsonDeerializer
     auto-offset-reset: latest
   kafka-topics:
     LOG:
@@ -11,6 +11,7 @@ presence-monitor:
       telemetry.metrics.json
     EVENT:
       telemetry.events.json
+    RESOURCE:
   exportPeriod:
     5
   resourceManagerUrl:

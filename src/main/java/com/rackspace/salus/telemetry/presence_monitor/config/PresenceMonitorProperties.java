@@ -22,12 +22,14 @@ import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
+@Configuration
 @ConfigurationProperties("presence-monitor")
 @Component
 @Data
