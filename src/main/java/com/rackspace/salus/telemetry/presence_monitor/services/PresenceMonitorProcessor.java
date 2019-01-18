@@ -1,6 +1,7 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.KeyValue;
@@ -25,6 +26,7 @@ import io.micrometer.core.instrument.Tag;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -60,7 +62,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final KeyHashing hashing;
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
-    private KafkaConsumer<String, String> consumer;
+    private KafkaConsumer<String, ResourceEvent> consumer;
 
     static final String SSEHdr = "data:";
 
@@ -81,7 +83,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.hashing = hashing;
         this.props = props;
         this.restTemplate = restTemplate;
-        consumer = new KafkaConsumer<String, String>(props.getKafka());
+        consumer = new KafkaConsumer<String, ResourceEvent>(props.getKafka());
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
@@ -139,8 +141,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
+            taskScheduler.submit(resourceUpdater);
             exporterStarted = true;
         }
+
         PartitionSlice newSlice = new PartitionSlice();
         meterRegistry.gaugeMapSize("partitionExpectedSize",
             Collections.singletonList(Tag.of("id", id)),
@@ -210,37 +214,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
 
-    // Handle watch events from the expected keys
-    BiConsumer<WatchResponse, PartitionSlice> expectedWatchResponseConsumer = (watchResponse, partitionSlice) ->
-        watchResponse.getEvents().forEach(event -> {
-            String eventKey;
-            ResourceInfo resourceInfo;
-            PartitionSlice.ExpectedEntry watchEntry;
-            if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-                // add new entry
-                eventKey = getExpectedId(event.getKeyValue());
-                watchEntry = new PartitionSlice.ExpectedEntry();
-                try {
-                    resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
-                } catch (IOException e) {
-                    log.warn("Failed to parse ResourceInfo {}", e);
-                    return;
-                }
-                watchEntry.setResourceInfo(resourceInfo);
-                watchEntry.setActive(false);
-                partitionSlice.getExpectedTable().put(eventKey, watchEntry);
-            } else {
-                // Delete old entry
-                eventKey = getExpectedId(event.getPrevKV());
-
-                if (partitionSlice.getExpectedTable().remove(eventKey) == null) {
-                    log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
-                }
-
-            }
-        });
-
-
     // Handle watch events from the active keys
     BiConsumer<WatchResponse, PartitionSlice> activeWatchResponseConsumer = (watchResponse, partitionSlice) ->
         watchResponse.getEvents().forEach(event -> {
@@ -273,21 +246,37 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 log.warn("Failed to find ExpectedEntry to update {}", eventKey);
             }
         });
-    private void run() {
+    private Runnable resourceUpdater = () -> {
         while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(100);
-            for (ConsumerRecord<String, String> record : records)
+            ConsumerRecords<String, ResourceEvent> records = consumer.poll(Duration.ofMillis(100));
+            for (ConsumerRecord<String, ResourceEvent> record : records)
 
                 for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
                     PartitionSlice slice = e.getValue();
                     if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
                             (record.key().compareTo(slice.getRangeMax()) <= 0)) {
-                        updateSlice(slice, record.value());
+                        updateSlice(slice, record.key(), record.value());
                     }
                 }
         }
-    }
+    };
 
+    private void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent){
+        ResourceInfo rinfo = convert(resourceEvent.getResource());
+        if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
+            PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
+            PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
+            newEntry.setResourceInfo(rinfo);
+            if (oldEntry != null) {
+                newEntry.setActive(oldEntry.getActive());
+            } else {
+                newEntry.setActive(false);
+            }
+            slice.getExpectedTable().put(key, newEntry);
+
+        } else {
+            slice.getExpectedTable().remove(key);
+        }
     }
 
     @Override
