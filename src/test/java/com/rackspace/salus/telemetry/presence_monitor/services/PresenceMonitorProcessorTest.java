@@ -110,10 +110,6 @@ public class PresenceMonitorProcessorTest {
     private String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
             rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-    //@Autowired
-    //PresenceMonitorProcessorTest(PresenceMonitorProperties props) {
-    //    presenceMonitorProperties = props;
-    //}
     @Autowired
     private PresenceMonitorProperties presenceMonitorProperties;
 

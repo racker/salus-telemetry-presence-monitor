@@ -150,6 +150,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
+        //  Seek to end before reading resource from manager
+        String r = props.getKafkaTopics().get(KafkaMessageType.RESOURCE);
+        consumer.subscribe(Arrays.asList(r));
+        consumer.seekToBeginning(consumer.assignment());
+
             taskScheduler.submit(resourceUpdater);
             exporterStarted = true;
         }
@@ -168,11 +173,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         }
         newSlice.setRangeMax(workContent.get("end").asText());
         newSlice.setRangeMin(workContent.get("start").asText());
-
-        //  Seek to end before reading resource from manager
-        String r = props.getKafkaTopics().get(KafkaMessageType.RESOURCE);
-        consumer.subscribe(Arrays.asList(r));
-        consumer.seekToEnd(consumer.assignment());
 
         // Get the expected entries
         List<Resource> resources = getResources();
