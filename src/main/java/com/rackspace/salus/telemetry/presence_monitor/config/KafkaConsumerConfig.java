@@ -40,14 +40,12 @@ import java.util.Map;
 @Configuration
 @Slf4j
 public class KafkaConsumerConfig {
-//    @Value("${presence-monitor.kafka.bootstrap-servers}")
-    @Value("${spring.embedded.kafka.brokers}")
+    @Value("${presence-monitor.kafka.bootstrap-servers}")
     String servers;
     @Value("${presence-monitor.kafka.group-id}")
     String groupId;
     @Bean
     public ConsumerFactory<String, ResourceEvent> consumerFactory() {
-    log.info("gbjgroup" + groupId);
         Map<String, Object> props = new HashMap<>();
         props.put(
           ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,

@@ -47,6 +47,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.concurrent.ListenableFuture;
 
@@ -59,6 +60,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @EnableAutoConfiguration
 @DirtiesContext
 @Slf4j
+@ActiveProfiles("test")
 public class ResourceListenerTest {
 
   @Configuration

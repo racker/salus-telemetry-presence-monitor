@@ -29,3 +29,12 @@ spring:
   main:
     web-environment:
       false
+
+---
+
+spring:
+  profiles: test
+
+presence-monitor:
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
