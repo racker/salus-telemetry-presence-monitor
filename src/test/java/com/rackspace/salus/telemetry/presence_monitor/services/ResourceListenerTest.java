@@ -138,23 +138,19 @@ public class ResourceListenerTest {
 
     // wait until the partitions are assigned
     System.out.println("gbj wait");
-    // for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
-    //     .getListenerContainers()) {
-    //   ContainerTestUtils.waitForAssignment(messageListenerContainer,
-    //       embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
-    // }
+    for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
+        .getListenerContainers()) {
+      ContainerTestUtils.waitForAssignment(messageListenerContainer,
+          embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
+    }
   }
 
   @Test
   public void testListener() throws Exception {
     // send the message
     System.out.println("gbj start");
-    Thread.sleep(1000 * 5);
     ListenableFuture<SendResult<String, ResourceEvent>> res = template.send(TOPIC, "00001", resourceEvent);
     SendResult<String , ResourceEvent> sr = res.get();
-
-    System.out.println(sr.toString());
-    Thread.sleep(1000 * 5);
     System.out.println("gbj done");
   }
 }

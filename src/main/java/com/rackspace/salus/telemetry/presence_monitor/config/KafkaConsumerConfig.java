@@ -43,7 +43,6 @@ public class KafkaConsumerConfig {
 //    @Value("${presence-monitor.kafka.bootstrap-servers}")
     @Value("${spring.embedded.kafka.brokers}")
     String servers;
-//    String servers = "localhost:9092";
 //    @Value("${presence-monitor.kafka.group-id")
     String groupId = "pmon";
     @Bean
