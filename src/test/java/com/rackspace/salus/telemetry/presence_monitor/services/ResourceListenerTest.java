@@ -77,8 +77,8 @@ public class ResourceListenerTest {
 
 
 
-  // @Value("${presence-monitor.kafka-topics.RESOURCE}")
-  private static String TOPIC = "telemetry.resources.json";
+  @Value("${presence-monitor.kafka-topics.RESOURCE}")
+  private String TOPIC;
 
   @Autowired
   private ResourceListener resourceListener;
@@ -90,7 +90,7 @@ public class ResourceListenerTest {
 
   @ClassRule
   public static EmbeddedKafkaRule embeddedKafka =
-      new EmbeddedKafkaRule(1, true, 1, TOPIC);
+      new EmbeddedKafkaRule(1, true, 1);
 
   private static ConcurrentHashMap<String, PartitionSlice>
           partitionTable;
@@ -109,15 +109,12 @@ public class ResourceListenerTest {
 
   @Before
   public void setUp() throws Exception {
-    log.info("gbjrlserver " +       embeddedKafka.getEmbeddedKafka().getBrokersAsString());
     resource = objectMapper.readValue(resourceString, Resource.class);
     resourceEvent.setResource(resource).setOperation("create");
     // set up the Kafka producer properties
     Map<String, Object> props = new HashMap<>();
     props.put(
       ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-//      "localhost:9092");
-
       embeddedKafka.getEmbeddedKafka().getBrokersAsString());
     props.put(
       ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, 
@@ -137,7 +134,6 @@ public class ResourceListenerTest {
     template.setDefaultTopic(TOPIC);
 
     // wait until the partitions are assigned
-    System.out.println("gbj wait");
     for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
         .getListenerContainers()) {
       ContainerTestUtils.waitForAssignment(messageListenerContainer,
@@ -148,9 +144,8 @@ public class ResourceListenerTest {
   @Test
   public void testListener() throws Exception {
     // send the message
-    System.out.println("gbj start");
     ListenableFuture<SendResult<String, ResourceEvent>> res = template.send(TOPIC, "00001", resourceEvent);
     SendResult<String , ResourceEvent> sr = res.get();
-    System.out.println("gbj done");
+    Thread.sleep(3000);
   }
 }
