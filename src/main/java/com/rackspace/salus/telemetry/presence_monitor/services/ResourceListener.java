@@ -40,10 +40,9 @@ class ResourceListener implements ConsumerSeekAware {
     }
 
     @KafkaListener(
-  //    topics = "${presence-monitor.kafka-topics.RESOURCE}",
-            topics = "telemetry.resources.json",
-            groupId = "pmon",
-      containerFactory = "kafkaListenerContainerFactory")
+        topics = "${presence-monitor.kafka-topics.RESOURCE}",
+        groupId = "${presence-monitor.kafka.group-id}",
+        containerFactory = "kafkaListenerContainerFactory")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
             PartitionSlice slice = e.getValue();

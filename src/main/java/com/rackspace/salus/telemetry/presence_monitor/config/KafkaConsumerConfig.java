@@ -43,11 +43,11 @@ public class KafkaConsumerConfig {
 //    @Value("${presence-monitor.kafka.bootstrap-servers}")
     @Value("${spring.embedded.kafka.brokers}")
     String servers;
-//    @Value("${presence-monitor.kafka.group-id")
-    String groupId = "pmon";
+    @Value("${presence-monitor.kafka.group-id}")
+    String groupId;
     @Bean
     public ConsumerFactory<String, ResourceEvent> consumerFactory() {
-    log.info("gbjservers" + servers);
+    log.info("gbjgroup" + groupId);
         Map<String, Object> props = new HashMap<>();
         props.put(
           ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
