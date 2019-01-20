@@ -33,10 +33,6 @@ import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.iterators.EntrySetMapIterator;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -62,7 +58,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final KeyHashing hashing;
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
-    private KafkaConsumer<String, ResourceEvent> consumer;
+    private ResourceListener resourceListener = new ResourceListener(partitionTable);
 
     static final String SSEHdr = "data:";
 
@@ -82,9 +78,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.metricExporter.setPartitionTable(partitionTable);
         this.hashing = hashing;
         this.props = props;
-        this.props.setKafka(fixupKeys(this.props.getKafka()));
         this.restTemplate = restTemplate;
-        consumer = new KafkaConsumer<String, ResourceEvent>(this.props.getKafka());
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
@@ -111,17 +105,18 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             resourceInfo.getIdentifierValue());
         return hashing.hash(resourceKey);
     }
-    private synchronized List<Resource> getResources(){
-        List<Resource> resources = new ArrayList<>();
-        
-        restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
-        }, response -> {
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
-            String line;
+    private List<Resource> getResources(){
+        synchronized (resourceListener) {
+            List<Resource> resources = new ArrayList<>();
+
+            restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
+            }, response -> {
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
+                String line;
                 while ((line = bufferedReader.readLine()) != null) {
                     if (line.length() > SSEHdr.length())
                         try {
-                           Resource resource;
+                            Resource resource;
                             // remove the "data:" hdr
                             resource = objectMapper.readValue(line.substring(SSEHdr.length()), Resource.class);
                             resources.add(resource);
@@ -129,9 +124,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                             log.warn("Failed to parse Resource", e);
                         }
                 }
-            return response;
-        });
-        return resources;
+                return response;
+            });
+            return resources;
+        }
     }
 
     static ResourceInfo convert(Resource resource) {
@@ -150,12 +146,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         if (!exporterStarted) {
             taskScheduler.submit(metricExporter);
-        //  Seek to end before reading resource from manager
-        String r = props.getKafkaTopics().get(KafkaMessageType.RESOURCE);
-        consumer.subscribe(Arrays.asList(r));
-        consumer.seekToBeginning(consumer.assignment());
-
-            taskScheduler.submit(resourceUpdater);
             exporterStarted = true;
         }
 
@@ -257,42 +247,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 log.warn("Failed to find ExpectedEntry to update {}", eventKey);
             }
         });
-
-    private Runnable resourceUpdater = () -> {
-        while (true) {
-            ConsumerRecords<String, ResourceEvent> records = consumer.poll(Duration.ofMillis(100));
-            handleRecords(records);
-        }
-    };
-
-    private synchronized void handleRecords(ConsumerRecords<String, ResourceEvent> records) {
-        for (ConsumerRecord<String, ResourceEvent> record : records) {
-            for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
-                PartitionSlice slice = e.getValue();
-                if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
-                        (record.key().compareTo(slice.getRangeMax()) <= 0)) {
-                    updateSlice(slice, record.key(), record.value());
-                }
-            }
-        }
-    }
-    private void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent){
-        ResourceInfo rinfo = convert(resourceEvent.getResource());
-        if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
-            PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
-            PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
-            newEntry.setResourceInfo(rinfo);
-            if (oldEntry != null) {
-                newEntry.setActive(oldEntry.getActive());
-            } else {
-                newEntry.setActive(false);
-            }
-            slice.getExpectedTable().put(key, newEntry);
-
-        } else {
-            slice.getExpectedTable().remove(key);
-        }
-    }
 
     @Override
     public void update(String id, String content) {
