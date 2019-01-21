@@ -164,10 +164,12 @@ public class ResourceListenerTest {
         listenerSem.acquire();
         PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
         assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
+
         template.send(TOPIC, key, updatedResourceEvent);
         listenerSem.acquire();
         entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
         assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
+
         resourceEvent.setOperation("delete");
         template.send(TOPIC, key, resourceEvent);
         listenerSem.acquire();
