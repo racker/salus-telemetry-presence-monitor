@@ -19,6 +19,7 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
+import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.Data;
@@ -32,7 +33,6 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 @Slf4j
-@Data
 class ResourceListener implements ConsumerSeekAware {
     private Map<String, PartitionSlice> partitionTable;
 
@@ -46,33 +46,31 @@ class ResourceListener implements ConsumerSeekAware {
             PartitionSlice slice = e.getValue();
             if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
                     (record.key().compareTo(slice.getRangeMax()) <= 0)) {
-                updateSlice.accept(slice, record);
+                updateSlice(slice, record.key(), record.value());
             }
         }
     }
 
-    BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> updateSlice = (slice, record) -> {
-        // Prevent resources from being updated simultaneously
-        synchronized (this) {
-            String key = record.key();
-            ResourceEvent resourceEvent = record.value();
-            ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
-            if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
-                PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
-                PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
-                newEntry.setResourceInfo(rinfo);
-                if (oldEntry != null) {
-                    newEntry.setActive(oldEntry.getActive());
-                } else {
-                    newEntry.setActive(false);
-                }
-                slice.getExpectedTable().put(key, newEntry);
-
+    // Prevent slice from being updated simultaneously
+    protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
+        ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
+        if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
+            PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
+            PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
+            newEntry.setResourceInfo(rinfo);
+            if (oldEntry != null) {
+                newEntry.setActive(oldEntry.getActive());
             } else {
-                slice.getExpectedTable().remove(key);
+                newEntry.setActive(false);
             }
+            slice.getExpectedTable().put(key, newEntry);
+
+        } else {
+            slice.getExpectedTable().remove(key);
         }
-    };
+    }
+
+    ;
 
     @Override
     public void registerSeekCallback(ConsumerSeekCallback consumerSeekCallback) {

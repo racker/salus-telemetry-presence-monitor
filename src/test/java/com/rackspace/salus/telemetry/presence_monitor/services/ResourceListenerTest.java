@@ -77,14 +77,7 @@ public class ResourceListenerTest {
             slice.setRangeMin(rangeStart);
             slice.setRangeMax(rangeEnd);
             partitionTable.put(sliceKey, slice);
-            ResourceListener rl = new ResourceListener(partitionTable);
-            BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> originalFunction = rl.getUpdateSlice();
-            BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> newFunction = (aSlice, record) -> {
-                originalFunction.accept(aSlice, record);
-                listenerSem.release();
-            };
-            rl.setUpdateSlice(newFunction);
-            return rl;
+            return new SliceUpdateListener(partitionTable);
         }
     }
 
@@ -157,14 +150,15 @@ public class ResourceListenerTest {
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
     }
 
-    class SliceUpdateListener extends ResourceListener {
+    static class SliceUpdateListener extends ResourceListener {
         SliceUpdateListener(Map<String, PartitionSlice> partitionTable) {
             super(partitionTable);
         }
-        public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
-            super.resourceListener(record);
+
+        protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
+            super.updateSlice(slice, key, resourceEvent);
             listenerSem.release();
         }
 
-        }
+    }
 }
