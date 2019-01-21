@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.common.workpart.WorkProcessor;
-import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
+import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.Resource;
@@ -110,9 +110,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     String genExpectedId(ResourceInfo resourceInfo) {
-        String resourceKey = String.format("%s:%s:%s",
-                resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
-                resourceInfo.getIdentifierValue());
+        String resourceKey = String.format("%s:%s",
+                resourceInfo.getTenantId(), resourceInfo.getResourceId());
         return hashing.hash(resourceKey);
     }
 
@@ -144,8 +143,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
     static ResourceInfo convert(Resource resource) {
         ResourceInfo ri = new ResourceInfo();
-        ri.setIdentifierName(resource.getResourceIdentifier().getIdentifierName());
-        ri.setIdentifierValue(resource.getResourceIdentifier().getIdentifierValue());
+        ri.setResourceId(resource.getResourceId());
         ri.setLabels(resource.getLabels());
         ri.setTenantId(resource.getTenantId());
         return ri;

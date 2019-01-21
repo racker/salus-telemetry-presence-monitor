@@ -24,7 +24,7 @@ import com.rackspace.salus.common.workpart.config.EtcdProperties;
 import com.rackspace.salus.common.workpart.config.WorkerProperties;
 import com.rackspace.salus.common.workpart.services.WorkAllocator;
 import com.rackspace.salus.telemetry.presence_monitor.services.PresenceMonitorProcessor;
-import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
+import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import org.apache.avro.io.EncoderFactory;
 import org.springframework.beans.factory.annotation.Autowired;

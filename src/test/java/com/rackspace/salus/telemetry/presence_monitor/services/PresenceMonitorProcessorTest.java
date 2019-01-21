@@ -29,7 +29,7 @@ import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
+import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
@@ -110,7 +110,7 @@ public class PresenceMonitorProcessorTest {
     RestTemplateBuilder restTemplateBuilder;
 
     private String expectedResourceString =
-            "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
+            "{\"resourceId\":\"os:LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
                     "\"tenantId\":\"123456\"}";
 

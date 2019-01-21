@@ -18,11 +18,10 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
-import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
@@ -30,7 +29,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 
 import java.util.Map;
-import java.util.function.BiConsumer;
 
 @Slf4j
 class ResourceListener implements ConsumerSeekAware {
@@ -54,7 +52,7 @@ class ResourceListener implements ConsumerSeekAware {
     // Prevent slice from being updated simultaneously
     protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
         ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
-        if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
+        if (!resourceEvent.getOperation().equals(OperationType.DELETE)) {
             PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
             PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
             newEntry.setResourceInfo(rinfo);
@@ -69,8 +67,6 @@ class ResourceListener implements ConsumerSeekAware {
             slice.getExpectedTable().remove(key);
         }
     }
-
-    ;
 
     @Override
     public void registerSeekCallback(ConsumerSeekCallback consumerSeekCallback) {

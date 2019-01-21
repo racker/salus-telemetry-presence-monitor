@@ -19,13 +19,11 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -37,22 +35,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.function.BiConsumer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -100,7 +93,7 @@ public class ResourceListenerTest {
             partitionTable;
 
     private String resourceString =
-            "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
+            "{\"resourceId\":\"os:LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
                     "\"tenantId\":\"123456\"}";
     private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
@@ -115,8 +108,8 @@ public class ResourceListenerTest {
     public void setUp() throws Exception {
         resource = objectMapper.readValue(resourceString, Resource.class);
         updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
-        resourceEvent.setResource(resource).setOperation("create");
-        updatedResourceEvent.setResource(updatedResource).setOperation("update");
+        resourceEvent.setResource(resource).setOperation(OperationType.CREATE);
+        updatedResourceEvent.setResource(updatedResource).setOperation(OperationType.UPDATE);
 
 
         // wait until the partitions are assigned
@@ -144,7 +137,7 @@ public class ResourceListenerTest {
         entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
         assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
 
-        resourceEvent.setOperation("delete");
+        resourceEvent.setOperation(OperationType.DELETE);
         template.send(TOPIC, key, resourceEvent);
         listenerSem.acquire();
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));

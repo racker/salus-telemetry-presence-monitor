@@ -71,8 +71,8 @@ public class MetricRouter {
         ResourceInfo resourceInfo = expectedEntry.getResourceInfo();
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
-        String resourceKey = String.format("%s:%s:%s", tenantId,
-            resourceInfo.getIdentifierName(), resourceInfo.getIdentifierValue());
+        String resourceKey = String.format("%s:%s", tenantId,
+            resourceInfo.getResourceId());
         Map<String, String> envoyLabels = resourceInfo.getLabels();
         Map<String, String> systemMetadata;
         if (envoyId == null) {
