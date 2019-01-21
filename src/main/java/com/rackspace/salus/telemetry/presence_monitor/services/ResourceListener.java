@@ -56,7 +56,7 @@ class ResourceListener implements ConsumerSeekAware {
         }
     }
 
-    // Prevent slice from being updated simultaneously
+    // synchronized to prevent slice from being updated simultaneously when a new slice is added
     protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
         boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
         ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
