@@ -112,6 +112,7 @@ public class PresenceMonitorProcessorTest {
     private String expectedResourceString =
             "{\"resourceId\":\"os:LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
+                    "\"presenceMonitoringEnabled\":true," +
                     "\"tenantId\":\"123456\"}";
 
     private String activeResourceInfoString;

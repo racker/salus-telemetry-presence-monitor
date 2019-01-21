@@ -11,21 +11,19 @@ presence-monitor:
   exportPeriod:
     5
   resourceManagerUrl:
-    http://localhost:8082/auth/sse
+    http://localhost:8082/getResources
 etcd:
   url: http://localhost:2479
 worker:
   prefix:
     /workAllocations/PRESENCE_MONITOR
 spring:
-  application:
-    name: presence.monitor
   kafka:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
-      group-id: presence.monitor
+      group-id: presence-monitor-${random.value}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -42,11 +40,7 @@ spring:
 
 spring:
   profiles: test
-  kafka:
-    bootstrap-servers: ${spring.embedded.kafka.brokers}
   
 presence-monitor:
   exportPeriod:
     1
-  resourceManagerUrl:
-    http://localhost/getResources

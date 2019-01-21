@@ -95,6 +95,7 @@ public class ResourceListenerTest {
     private String resourceString =
             "{\"resourceId\":\"os:LINUX\"," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
+                    "\"presenceMonitoringEnabled\":true," +
                     "\"tenantId\":\"123456\"}";
     private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
 

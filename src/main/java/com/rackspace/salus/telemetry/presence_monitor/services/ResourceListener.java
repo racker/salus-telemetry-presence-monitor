@@ -40,19 +40,27 @@ class ResourceListener implements ConsumerSeekAware {
 
     @KafkaListener(topics = "${presence-monitor.kafka-topics.RESOURCE}")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
+        boolean keyFound = false;
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
             PartitionSlice slice = e.getValue();
             if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
                     (record.key().compareTo(slice.getRangeMax()) <= 0)) {
+                log.trace("record {} used to update slice", record.key());
+                keyFound = true;
                 updateSlice(slice, record.key(), record.value());
+                break;
             }
+        }
+        if (!keyFound) {
+            log.trace("record {} ignored", record.key());
         }
     }
 
     // Prevent slice from being updated simultaneously
     protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
+        boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
         ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
-        if (!resourceEvent.getOperation().equals(OperationType.DELETE)) {
+        if (!(resourceEvent.getOperation().equals(OperationType.DELETE)) && enabled) {
             PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
             PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
             newEntry.setResourceInfo(rinfo);

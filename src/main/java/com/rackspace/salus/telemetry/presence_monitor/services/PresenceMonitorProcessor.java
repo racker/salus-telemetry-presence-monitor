@@ -179,6 +179,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         log.debug("Found {} expected envoys", resources.size());
         resources.forEach(resource -> {
+            if (!resource.getPresenceMonitoringEnabled())
+                return;
             // Create an entry for the resource
             ResourceInfo resourceInfo = convert(resource);
             String expectedId = genExpectedId(resourceInfo);
@@ -188,6 +190,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 expectedEntry.setResourceInfo(resourceInfo);
                 expectedEntry.setActive(false);
                 newSlice.getExpectedTable().put(expectedId, expectedEntry);
+                log.trace("record {} used to update slice", expectedId);
+            } else {
+                log.trace("record {} ignored", expectedId);
             }
         });
 
