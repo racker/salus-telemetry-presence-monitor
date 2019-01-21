@@ -1,7 +1,4 @@
 presence-monitor:
-  kafka:
-    bootstrap-servers: localhost:9092
-    group-id: presence.monitor
   kafka-topics:
     LOG:
       telemetry.logs.json
@@ -21,6 +18,21 @@ worker:
   prefix:
     /workAllocations/PRESENCE_MONITOR
 spring:
+  application:
+    name: presence.monitor
+  kafka:
+    consumer:
+      group-id: presence.monitor
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages:
+                "*"
   main:
     web-environment:
       false
@@ -29,10 +41,10 @@ spring:
 
 spring:
   profiles: test
-
-presence-monitor:
   kafka:
     bootstrap-servers: ${spring.embedded.kafka.brokers}
+  
+presence-monitor:
   exportPeriod:
     1
   resourceManagerUrl:

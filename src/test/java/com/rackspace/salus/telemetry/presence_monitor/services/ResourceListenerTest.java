@@ -21,7 +21,6 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
-import com.rackspace.salus.telemetry.presence_monitor.config.KafkaConsumerConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -37,7 +36,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -68,7 +66,6 @@ import static org.junit.Assert.assertNull;
 public class ResourceListenerTest {
 
     @Configuration
-    @Import({KafkaConsumerConfig.class})
     public static class TestConfig {
         @Bean
         ResourceListener getRL() {
@@ -175,4 +172,15 @@ public class ResourceListenerTest {
         listenerSem.acquire();
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
     }
+
+    class SliceUpdateListener extends ResourceListener {
+        SliceUpdateListener(Map<String, PartitionSlice> partitionTable) {
+            super(partitionTable);
+        }
+        public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
+            super.resourceListener(record);
+            listenerSem.release();
+        }
+
+        }
 }
