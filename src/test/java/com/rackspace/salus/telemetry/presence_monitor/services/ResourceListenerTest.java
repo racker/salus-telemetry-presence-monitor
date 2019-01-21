@@ -24,6 +24,7 @@ import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.presence_monitor.config.KafkaConsumerConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
@@ -50,10 +51,14 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.concurrent.ListenableFuture;
+import static org.junit.Assert.*;
+
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.BiConsumer;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -72,12 +77,19 @@ public class ResourceListenerTest {
       PartitionSlice slice = new PartitionSlice();
       slice.setRangeMin(rangeStart);
       slice.setRangeMax(rangeEnd);
-      partitionTable.put("id1", slice);
-      return new ResourceListener(partitionTable);
+      partitionTable.put(sliceKey, slice);
+      ResourceListener rl = new ResourceListener(partitionTable);
+      BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> originalFunction = rl.getUpdateSlice();
+      BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> newFunction = (aSlice, record) -> {
+          originalFunction.accept(aSlice, record);
+          listenerSem.release();
+      };
+      rl.setUpdateSlice(newFunction);
+      return rl;
     }
   }
 
-
+  static String sliceKey = "id1";
 
   @Value("${presence-monitor.kafka-topics.RESOURCE}")
   private String TOPIC;
@@ -100,19 +112,25 @@ public class ResourceListenerTest {
   private String resourceString =
           "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
                   "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
-                  "\"tenantId\":\"123456gbj\"}";
+                  "\"tenantId\":\"123456\"}";
+  private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
 
   private ResourceEvent resourceEvent = new ResourceEvent();
-  private Resource resource;
+  private ResourceEvent updatedResourceEvent = new ResourceEvent();
+  private Resource resource, updatedResource;
   private ObjectMapper objectMapper = new ObjectMapper();
 
   private static String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
           rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
+  static Semaphore listenerSem = new Semaphore(0);
+
   @Before
   public void setUp() throws Exception {
     resource = objectMapper.readValue(resourceString, Resource.class);
+    updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
     resourceEvent.setResource(resource).setOperation("create");
+    updatedResourceEvent.setResource(updatedResource).setOperation("update");
     // set up the Kafka producer properties
     Map<String, Object> props = new HashMap<>();
     props.put(
@@ -127,8 +145,7 @@ public class ResourceListenerTest {
     // create a Kafka producer factory
     ProducerFactory<String, ResourceEvent> producerFactory =
         new DefaultKafkaProducerFactory<String, ResourceEvent>(
-
-            props);
+                props);
 
     // create a Kafka template
     template = new KafkaTemplate<>(producerFactory);
@@ -141,13 +158,26 @@ public class ResourceListenerTest {
       ContainerTestUtils.waitForAssignment(messageListenerContainer,
           embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
     }
+    
+
   }
 
   @Test
   public void testListener() throws Exception {
+    String key = "00001";
     // send the message
-    ListenableFuture<SendResult<String, ResourceEvent>> res = template.send(TOPIC, "00001", resourceEvent);
-    SendResult<String , ResourceEvent> sr = res.get();
-    Thread.sleep(3000);
+    assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
+    template.send(TOPIC, key, resourceEvent);
+    listenerSem.acquire();
+    PartitionSlice.ExpectedEntry entry =  partitionTable.get(sliceKey).getExpectedTable().get(key);
+    assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
+    template.send(TOPIC, key, updatedResourceEvent);
+    listenerSem.acquire();
+    entry =  partitionTable.get(sliceKey).getExpectedTable().get(key);
+    assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
+    resourceEvent.setOperation("delete");
+    template.send(TOPIC, key, resourceEvent);
+    listenerSem.acquire();
+    assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
   }
 }
