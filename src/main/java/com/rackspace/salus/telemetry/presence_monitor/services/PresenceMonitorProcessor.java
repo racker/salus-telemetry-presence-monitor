@@ -221,6 +221,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             String eventKey;
             ResourceInfo resourceInfo;
             Boolean activeValue = false;
+            PartitionSlice.ExpectedEntry expectedEntry;
             if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
                 eventKey = getExpectedId(event.getKeyValue());
                 activeValue = true;
@@ -228,7 +229,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 eventKey = getExpectedId(event.getPrevKV());
             }
             if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
-                PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
+                expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
                 if (expectedEntry.getActive() != activeValue) {
                     expectedEntry.setActive(activeValue);
                     metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
@@ -244,7 +245,17 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                     expectedEntry.setResourceInfo(resourceInfo);
                 }
             } else {
-                log.warn("Failed to find ExpectedEntry to update {}", eventKey);
+                expectedEntry = new PartitionSlice.ExpectedEntry();
+                try {
+                    resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
+                } catch (IOException e) {
+                    log.warn("Failed to parse ResourceInfo {}", e);
+                    return;
+                }
+                expectedEntry.setResourceInfo(resourceInfo);
+                expectedEntry.setActive(activeValue);
+                partitionSlice.getExpectedTable().put(eventKey, expectedEntry);
+                metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
             }
         });
 
