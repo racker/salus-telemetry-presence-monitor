@@ -68,10 +68,8 @@ import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
 
 @RunWith(SpringRunner.class)
-// Adding this to force the read the yml files.  Is there a better way?
 @EnableAutoConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
@@ -90,6 +88,7 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricExporter metricExporter;
 
+    @Mock
     private MetricRouter metricRouter;
 
     @Autowired
@@ -154,7 +153,6 @@ public class PresenceMonitorProcessorTest {
 
     @Test
     public void testProcessorStart() throws Exception {
-        metricRouter = Mockito.mock(MetricRouter.class);
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
 
         InputStream testStream = new ByteArrayInputStream((PresenceMonitorProcessor.SSEHdr + " " + expectedResourceString + "\n\n").getBytes());
@@ -203,7 +201,6 @@ public class PresenceMonitorProcessorTest {
 
     @Test
     public void testProcessorWatchConsumers() throws Exception {
-        metricRouter = Mockito.mock(MetricRouter.class);
         doNothing().when(metricRouter).route(any(), any());
 
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
