@@ -93,7 +93,8 @@ public class ResourceListenerTest {
     @Value("${presence-monitor.kafka-topics.RESOURCE}")
     private String TOPIC;
 
-    private KafkaTemplate<String, ResourceEvent> template;
+    @Autowired
+    private KafkaTemplate template;
 
     @Autowired
     private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
@@ -124,23 +125,6 @@ public class ResourceListenerTest {
         resourceEvent.setResource(resource).setOperation("create");
         updatedResourceEvent.setResource(updatedResource).setOperation("update");
 
-        // set up the Kafka producer properties
-        Map<String, Object> props = new HashMap<>();
-        props.put(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                embeddedKafka.getEmbeddedKafka().getBrokersAsString());
-        props.put(
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class);
-        props.put(
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                JsonSerializer.class);
-        // create a Kafka producer factory
-        ProducerFactory<String, ResourceEvent> producerFactory =
-                new DefaultKafkaProducerFactory<>(props);
-
-        // create a Kafka template
-        template = new KafkaTemplate<>(producerFactory);
 
         // wait until the partitions are assigned
         for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
