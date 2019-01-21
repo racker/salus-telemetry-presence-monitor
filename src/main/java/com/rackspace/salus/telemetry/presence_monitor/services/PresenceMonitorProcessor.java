@@ -92,13 +92,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return strings[strings.length - 1];
     }
 
-    Map<String, Object> fixupKeys(Map<String, Object> props) {
-        HashMap<String, Object> fixedMap = new HashMap<>();
-        for(Map.Entry<String, Object> e : props.entrySet() ) {
-            fixedMap.put(e.getKey().replaceAll("-", "."), e.getValue());
-        }
-        return fixedMap;
-    }
     String genExpectedId(ResourceInfo resourceInfo) {
         String resourceKey = String.format("%s:%s:%s",
             resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
