@@ -86,7 +86,7 @@ public class PresenceMonitorProcessorTest {
 
     @MockBean
     RestTemplate restTemplate;
-    
+
     private String expectedResourceString =
             "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
@@ -134,10 +134,10 @@ public class PresenceMonitorProcessorTest {
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
         InputStream testStream = new ByteArrayInputStream((PresenceMonitorProcessor.SSEHdr + " " + expectedResourceString + "\n\n").getBytes());
         when(response.getBody()).thenReturn(testStream);
-        doAnswer(invocation ->{
+        doAnswer(invocation -> {
             ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
             return responseExtractor.extractData(response);
-        }).when(restTemplate).execute(any(), any(), any(), any(), (Object)any());
+        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
 
 
         Semaphore routerSem = new Semaphore(0);

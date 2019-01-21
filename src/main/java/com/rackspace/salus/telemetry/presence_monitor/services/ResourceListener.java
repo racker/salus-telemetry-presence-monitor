@@ -35,14 +35,15 @@ import java.util.function.BiConsumer;
 @Data
 class ResourceListener implements ConsumerSeekAware {
     private Map<String, PartitionSlice> partitionTable;
+
     ResourceListener(Map<String, PartitionSlice> partitionTable) {
         this.partitionTable = partitionTable;
     }
 
     @KafkaListener(
-        topics = "${presence-monitor.kafka-topics.RESOURCE}",
-        groupId = "${presence-monitor.kafka.group-id}",
-        containerFactory = "kafkaListenerContainerFactory")
+            topics = "${presence-monitor.kafka-topics.RESOURCE}",
+            groupId = "${presence-monitor.kafka.group-id}",
+            containerFactory = "kafkaListenerContainerFactory")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
             PartitionSlice slice = e.getValue();
@@ -53,28 +54,29 @@ class ResourceListener implements ConsumerSeekAware {
         }
     }
 
-         BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> updateSlice = (slice, record) -> {
-            // Prevent resources from being updated simultaneously
-            synchronized (this) {
-                String key = record.key();
-                ResourceEvent resourceEvent = record.value();
-                ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
-                if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
-                    PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
-                    PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
-                    newEntry.setResourceInfo(rinfo);
-                    if (oldEntry != null) {
-                        newEntry.setActive(oldEntry.getActive());
-                    } else {
-                        newEntry.setActive(false);
-                    }
-                    slice.getExpectedTable().put(key, newEntry);
-
+    BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> updateSlice = (slice, record) -> {
+        // Prevent resources from being updated simultaneously
+        synchronized (this) {
+            String key = record.key();
+            ResourceEvent resourceEvent = record.value();
+            ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
+            if (!resourceEvent.getOperation().equalsIgnoreCase("delete")) {
+                PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
+                PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
+                newEntry.setResourceInfo(rinfo);
+                if (oldEntry != null) {
+                    newEntry.setActive(oldEntry.getActive());
                 } else {
-                    slice.getExpectedTable().remove(key);
+                    newEntry.setActive(false);
                 }
+                slice.getExpectedTable().put(key, newEntry);
+
+            } else {
+                slice.getExpectedTable().remove(key);
             }
-        };
+        }
+    };
+
     @Override
     public void registerSeekCallback(ConsumerSeekCallback consumerSeekCallback) {
         // do nothing

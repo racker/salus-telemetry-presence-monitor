@@ -28,6 +28,7 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,11 +92,12 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
     String genExpectedId(ResourceInfo resourceInfo) {
         String resourceKey = String.format("%s:%s:%s",
-            resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
-            resourceInfo.getIdentifierValue());
+                resourceInfo.getTenantId(), resourceInfo.getIdentifierName(),
+                resourceInfo.getIdentifierValue());
         return hashing.hash(resourceKey);
     }
-    private List<Resource> getResources(){
+
+    private List<Resource> getResources() {
         // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
             List<Resource> resources = new ArrayList<>();
@@ -142,8 +144,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         PartitionSlice newSlice = new PartitionSlice();
         meterRegistry.gaugeMapSize("partitionExpectedSize",
-            Collections.singletonList(Tag.of("id", id)),
-            newSlice.getExpectedTable());
+                Collections.singletonList(Tag.of("id", id)),
+                newSlice.getExpectedTable());
 
         JsonNode workContent;
         try {
@@ -208,25 +210,35 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
     // Handle watch events from the active keys
     BiConsumer<WatchResponse, PartitionSlice> activeWatchResponseConsumer = (watchResponse, partitionSlice) ->
-        watchResponse.getEvents().forEach(event -> {
-            String eventKey;
-            ResourceInfo resourceInfo;
-            Boolean activeValue = false;
-            PartitionSlice.ExpectedEntry expectedEntry;
-            if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-                eventKey = getExpectedId(event.getKeyValue());
-                activeValue = true;
-            } else {
-                eventKey = getExpectedId(event.getPrevKV());
-            }
-            if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
-                expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
-                if (expectedEntry.getActive() != activeValue) {
-                    expectedEntry.setActive(activeValue);
-                    metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
+            watchResponse.getEvents().forEach(event -> {
+                String eventKey;
+                ResourceInfo resourceInfo;
+                Boolean activeValue = false;
+                PartitionSlice.ExpectedEntry expectedEntry;
+                if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
+                    eventKey = getExpectedId(event.getKeyValue());
+                    activeValue = true;
+                } else {
+                    eventKey = getExpectedId(event.getPrevKV());
                 }
-                // Update resource info if we have it
-                if (activeValue) {
+                if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
+                    expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
+                    if (expectedEntry.getActive() != activeValue) {
+                        expectedEntry.setActive(activeValue);
+                        metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
+                    }
+                    // Update resource info if we have it
+                    if (activeValue) {
+                        try {
+                            resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
+                        } catch (IOException e) {
+                            log.warn("Failed to parse ResourceInfo {}", e);
+                            return;
+                        }
+                        expectedEntry.setResourceInfo(resourceInfo);
+                    }
+                } else {
+                    expectedEntry = new PartitionSlice.ExpectedEntry();
                     try {
                         resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
                     } catch (IOException e) {
@@ -234,21 +246,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                         return;
                     }
                     expectedEntry.setResourceInfo(resourceInfo);
+                    expectedEntry.setActive(activeValue);
+                    partitionSlice.getExpectedTable().put(eventKey, expectedEntry);
+                    metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
                 }
-            } else {
-                expectedEntry = new PartitionSlice.ExpectedEntry();
-                try {
-                    resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
-                } catch (IOException e) {
-                    log.warn("Failed to parse ResourceInfo {}", e);
-                    return;
-                }
-                expectedEntry.setResourceInfo(resourceInfo);
-                expectedEntry.setActive(activeValue);
-                partitionSlice.getExpectedTable().put(eventKey, expectedEntry);
-                metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
-            }
-        });
+            });
 
     @Override
     public void update(String id, String content) {

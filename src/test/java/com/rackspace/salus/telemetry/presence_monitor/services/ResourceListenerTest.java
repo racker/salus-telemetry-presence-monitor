@@ -67,110 +67,110 @@ import static org.junit.Assert.assertNull;
 @ActiveProfiles("test")
 public class ResourceListenerTest {
 
-  @Configuration
-  @Import({KafkaConsumerConfig.class})
-  public static class TestConfig {
-    @Bean
-    ResourceListener getRL() {
-      String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
-              rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    @Configuration
+    @Import({KafkaConsumerConfig.class})
+    public static class TestConfig {
+        @Bean
+        ResourceListener getRL() {
+            String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
+                    rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-      partitionTable = new ConcurrentHashMap<>();
-      PartitionSlice slice = new PartitionSlice();
-      slice.setRangeMin(rangeStart);
-      slice.setRangeMax(rangeEnd);
-      partitionTable.put(sliceKey, slice);
-      ResourceListener rl = new ResourceListener(partitionTable);
-      BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> originalFunction = rl.getUpdateSlice();
-      BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> newFunction = (aSlice, record) -> {
-          originalFunction.accept(aSlice, record);
-          listenerSem.release();
-      };
-      rl.setUpdateSlice(newFunction);
-      return rl;
+            partitionTable = new ConcurrentHashMap<>();
+            PartitionSlice slice = new PartitionSlice();
+            slice.setRangeMin(rangeStart);
+            slice.setRangeMax(rangeEnd);
+            partitionTable.put(sliceKey, slice);
+            ResourceListener rl = new ResourceListener(partitionTable);
+            BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> originalFunction = rl.getUpdateSlice();
+            BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> newFunction = (aSlice, record) -> {
+                originalFunction.accept(aSlice, record);
+                listenerSem.release();
+            };
+            rl.setUpdateSlice(newFunction);
+            return rl;
+        }
     }
-  }
 
-  private static String sliceKey = "id1";
+    private static String sliceKey = "id1";
 
-  @Value("${presence-monitor.kafka-topics.RESOURCE}")
-  private String TOPIC;
+    @Value("${presence-monitor.kafka-topics.RESOURCE}")
+    private String TOPIC;
 
-  private KafkaTemplate<String, ResourceEvent> template;
+    private KafkaTemplate<String, ResourceEvent> template;
 
-  @Autowired
-  private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
-  @ClassRule
-  public static EmbeddedKafkaRule embeddedKafka =
-      new EmbeddedKafkaRule(1, true, 1);
+    @ClassRule
+    public static EmbeddedKafkaRule embeddedKafka =
+            new EmbeddedKafkaRule(1, true, 1);
 
-  private static ConcurrentHashMap<String, PartitionSlice>
-          partitionTable;
+    private static ConcurrentHashMap<String, PartitionSlice>
+            partitionTable;
 
-  private String resourceString =
-          "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
-                  "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
-                  "\"tenantId\":\"123456\"}";
-  private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
+    private String resourceString =
+            "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
+                    "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
+                    "\"tenantId\":\"123456\"}";
+    private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
 
-  private ResourceEvent resourceEvent = new ResourceEvent();
-  private ResourceEvent updatedResourceEvent = new ResourceEvent();
-  private Resource resource, updatedResource;
-  private ObjectMapper objectMapper = new ObjectMapper();
-  private static Semaphore listenerSem = new Semaphore(0);
+    private ResourceEvent resourceEvent = new ResourceEvent();
+    private ResourceEvent updatedResourceEvent = new ResourceEvent();
+    private Resource resource, updatedResource;
+    private ObjectMapper objectMapper = new ObjectMapper();
+    private static Semaphore listenerSem = new Semaphore(0);
 
-  @Before
-  public void setUp() throws Exception {
-    resource = objectMapper.readValue(resourceString, Resource.class);
-    updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
-    resourceEvent.setResource(resource).setOperation("create");
-    updatedResourceEvent.setResource(updatedResource).setOperation("update");
+    @Before
+    public void setUp() throws Exception {
+        resource = objectMapper.readValue(resourceString, Resource.class);
+        updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
+        resourceEvent.setResource(resource).setOperation("create");
+        updatedResourceEvent.setResource(updatedResource).setOperation("update");
 
-    // set up the Kafka producer properties
-    Map<String, Object> props = new HashMap<>();
-    props.put(
-      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-      embeddedKafka.getEmbeddedKafka().getBrokersAsString());
-    props.put(
-      ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, 
-      StringSerializer.class);
-    props.put(
-      ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, 
-      JsonSerializer.class);
-    // create a Kafka producer factory
-    ProducerFactory<String, ResourceEvent> producerFactory =
-        new DefaultKafkaProducerFactory<>(props);
+        // set up the Kafka producer properties
+        Map<String, Object> props = new HashMap<>();
+        props.put(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                embeddedKafka.getEmbeddedKafka().getBrokersAsString());
+        props.put(
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class);
+        props.put(
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                JsonSerializer.class);
+        // create a Kafka producer factory
+        ProducerFactory<String, ResourceEvent> producerFactory =
+                new DefaultKafkaProducerFactory<>(props);
 
-    // create a Kafka template
-    template = new KafkaTemplate<>(producerFactory);
+        // create a Kafka template
+        template = new KafkaTemplate<>(producerFactory);
 
-    // wait until the partitions are assigned
-    for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
-        .getListenerContainers()) {
-      ContainerTestUtils.waitForAssignment(messageListenerContainer,
-          embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
+        // wait until the partitions are assigned
+        for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
+                .getListenerContainers()) {
+            ContainerTestUtils.waitForAssignment(messageListenerContainer,
+                    embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
+        }
+
+
     }
-    
 
-  }
-
-  @Test
-  public void testListener() throws Exception {
-    String key = "00001";
-    // send the message
-    assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
-    template.send(TOPIC, key, resourceEvent);
-    listenerSem.acquire();
-    PartitionSlice.ExpectedEntry entry =  partitionTable.get(sliceKey).getExpectedTable().get(key);
-    assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
-    template.send(TOPIC, key, updatedResourceEvent);
-    listenerSem.acquire();
-    entry =  partitionTable.get(sliceKey).getExpectedTable().get(key);
-    assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
-    resourceEvent.setOperation("delete");
-    template.send(TOPIC, key, resourceEvent);
-    listenerSem.acquire();
-    assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
-  }
+    @Test
+    public void testListener() throws Exception {
+        String key = "00001";
+        // send the message
+        assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
+        template.send(TOPIC, key, resourceEvent);
+        listenerSem.acquire();
+        PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
+        assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
+        template.send(TOPIC, key, updatedResourceEvent);
+        listenerSem.acquire();
+        entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
+        assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
+        resourceEvent.setOperation("delete");
+        template.send(TOPIC, key, resourceEvent);
+        listenerSem.acquire();
+        assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
+    }
 }
