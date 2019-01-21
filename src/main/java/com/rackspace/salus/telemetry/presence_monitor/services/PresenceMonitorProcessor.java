@@ -1,7 +1,6 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.KeyValue;
@@ -26,13 +25,11 @@ import io.micrometer.core.instrument.Tag;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.iterators.EntrySetMapIterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -58,7 +55,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final KeyHashing hashing;
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
-    private ResourceListener resourceListener = new ResourceListener(partitionTable);
+    private final ResourceListener resourceListener = new ResourceListener(partitionTable);
 
     static final String SSEHdr = "data:";
 
@@ -99,6 +96,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return hashing.hash(resourceKey);
     }
     private List<Resource> getResources(){
+        // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
             List<Resource> resources = new ArrayList<>();
 

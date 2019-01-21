@@ -43,22 +43,21 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.util.concurrent.ListenableFuture;
-import static org.junit.Assert.*;
-
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -73,6 +72,9 @@ public class ResourceListenerTest {
   public static class TestConfig {
     @Bean
     ResourceListener getRL() {
+      String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
+              rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
       partitionTable = new ConcurrentHashMap<>();
       PartitionSlice slice = new PartitionSlice();
       slice.setRangeMin(rangeStart);
@@ -89,13 +91,10 @@ public class ResourceListenerTest {
     }
   }
 
-  static String sliceKey = "id1";
+  private static String sliceKey = "id1";
 
   @Value("${presence-monitor.kafka-topics.RESOURCE}")
   private String TOPIC;
-
-  @Autowired
-  private ResourceListener resourceListener;
 
   private KafkaTemplate<String, ResourceEvent> template;
 
@@ -119,11 +118,7 @@ public class ResourceListenerTest {
   private ResourceEvent updatedResourceEvent = new ResourceEvent();
   private Resource resource, updatedResource;
   private ObjectMapper objectMapper = new ObjectMapper();
-
-  private static String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
-          rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-
-  static Semaphore listenerSem = new Semaphore(0);
+  private static Semaphore listenerSem = new Semaphore(0);
 
   @Before
   public void setUp() throws Exception {
@@ -131,6 +126,7 @@ public class ResourceListenerTest {
     updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
     resourceEvent.setResource(resource).setOperation("create");
     updatedResourceEvent.setResource(updatedResource).setOperation("update");
+
     // set up the Kafka producer properties
     Map<String, Object> props = new HashMap<>();
     props.put(
@@ -144,13 +140,10 @@ public class ResourceListenerTest {
       JsonSerializer.class);
     // create a Kafka producer factory
     ProducerFactory<String, ResourceEvent> producerFactory =
-        new DefaultKafkaProducerFactory<String, ResourceEvent>(
-                props);
+        new DefaultKafkaProducerFactory<>(props);
 
     // create a Kafka template
     template = new KafkaTemplate<>(producerFactory);
-    // set the default topic to send to
-    template.setDefaultTopic(TOPIC);
 
     // wait until the partitions are assigned
     for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry

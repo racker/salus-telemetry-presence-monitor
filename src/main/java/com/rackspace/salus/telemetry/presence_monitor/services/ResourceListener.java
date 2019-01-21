@@ -18,15 +18,12 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import com.rackspace.salus.telemetry.model.Resource;
-import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
-import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
@@ -57,6 +54,7 @@ class ResourceListener implements ConsumerSeekAware {
     }
 
          BiConsumer<PartitionSlice, ConsumerRecord<String, ResourceEvent>> updateSlice = (slice, record) -> {
+            // Prevent resources from being updated simultaneously
             synchronized (this) {
                 String key = record.key();
                 ResourceEvent resourceEvent = record.value();
@@ -85,7 +83,7 @@ class ResourceListener implements ConsumerSeekAware {
     @Override
     public void onPartitionsAssigned(Map<TopicPartition, Long> map, ConsumerSeekCallback consumerSeekCallback) {
         for (Map.Entry<TopicPartition, Long> e : map.entrySet()) {
-            consumerSeekCallback.seekToBeginning(e.getKey().topic(), e.getKey().partition());
+            consumerSeekCallback.seekToEnd(e.getKey().topic(), e.getKey().partition());
         }
     }
 
