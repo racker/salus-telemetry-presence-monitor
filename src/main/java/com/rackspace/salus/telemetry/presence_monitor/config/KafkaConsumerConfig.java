@@ -32,7 +32,6 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
-import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,13 +58,13 @@ public class KafkaConsumerConfig {
         props.put(
           ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, 
           JsonDeserializer.class);
-      return new DefaultKafkaConsumerFactory<String, ResourceEvent>(
+      return new DefaultKafkaConsumerFactory<>(
         props,
         new StringDeserializer(), 
         new JsonDeserializer<>(ResourceEvent.class));
     }
 
-    @Bean(name="kafkaListenerContainerFactory")
+    @Bean
     public ConcurrentKafkaListenerContainerFactory<String, ResourceEvent>
       kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, ResourceEvent> factory

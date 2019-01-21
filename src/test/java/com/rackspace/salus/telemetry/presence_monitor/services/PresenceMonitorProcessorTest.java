@@ -25,14 +25,11 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import jdk.internal.util.xml.impl.Input;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -41,21 +38,17 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.*;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
 
 @RunWith(SpringRunner.class)
 // Adding this to force the read the yml files.  Is there a better way?
-//@PropertySource(value= {"classpath:application.yml"})
 @EnableAutoConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 
@@ -77,7 +70,7 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricExporter metricExporter;
 
-    MetricRouter metricRouter;
+    private MetricRouter metricRouter;
 
     @Autowired
     SimpleMeterRegistry simpleMeterRegistry;
@@ -99,8 +92,6 @@ public class PresenceMonitorProcessorTest {
                     "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
                     "\"tenantId\":\"123456\"}";
 
-    private Resource expectedResource;
-
     private String activeResourceInfoString;
 
     private ResourceInfo expectedResourceInfo;
@@ -116,7 +107,6 @@ public class PresenceMonitorProcessorTest {
     @Mock
     ClientHttpResponse response;
 
-    String expectedId;
     @Before
     public void setUp() throws Exception {
         taskScheduler = new ThreadPoolTaskScheduler();
@@ -130,13 +120,11 @@ public class PresenceMonitorProcessorTest {
         client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
 
         envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-        expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
+        Resource expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
         expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResource);
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
-        presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
-        presenceMonitorProperties.setResourceManagerUrl("http://localhost/getResources");
     }
 
 
@@ -162,7 +150,7 @@ public class PresenceMonitorProcessorTest {
                 envoyResourceManagement, taskScheduler, metricExporter,
                 simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplate);
 
-        expectedId = p.genExpectedId(expectedResourceInfo);
+        String expectedId = p.genExpectedId(expectedResourceInfo);
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/active/" + expectedId),
                 ByteSequence.fromString(activeResourceInfoString)).join();
