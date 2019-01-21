@@ -36,5 +36,4 @@ public class PresenceMonitorProperties {
     @DurationUnit(ChronoUnit.SECONDS)
     Duration exportPeriod;
     String resourceManagerUrl;
-    Map<String, Object> kafka;
 }

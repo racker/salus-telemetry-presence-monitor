@@ -50,6 +50,7 @@ import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
@@ -83,7 +84,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
                              MeterRegistry meterRegistry, KeyHashing hashing,
-                             PresenceMonitorProperties props, RestTemplate restTemplate) {
+                             PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder) {
         this.meterRegistry = meterRegistry;
         partitionTable = new ConcurrentHashMap<>();
         this.objectMapper = objectMapper;
@@ -94,7 +95,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.metricExporter.setPartitionTable(partitionTable);
         this.hashing = hashing;
         this.props = props;
-        this.restTemplate = restTemplate;
+        this.restTemplate = restTemplateBuilder.build();
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");

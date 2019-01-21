@@ -58,9 +58,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.*;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
@@ -69,10 +71,10 @@ import org.springframework.web.client.RestTemplate;
 // Adding this to force the read the yml files.  Is there a better way?
 @EnableAutoConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class PresenceMonitorProcessorTest {
     @Configuration
-    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, RestTemplate.class})
+    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
     public static class TestConfig {
         @Bean
         MeterRegistry getMeterRegistry() {
@@ -102,8 +104,11 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     KeyHashing hashing;
 
-    @MockBean
+    @Mock
     RestTemplate restTemplate;
+
+    @MockBean
+    RestTemplateBuilder restTemplateBuilder;
 
     private String expectedResourceString =
             "{\"resourceIdentifier\":{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"}," +
@@ -143,6 +148,7 @@ public class PresenceMonitorProcessorTest {
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
+        when(restTemplateBuilder.build()).thenReturn(restTemplate);
     }
 
 
@@ -150,13 +156,13 @@ public class PresenceMonitorProcessorTest {
     public void testProcessorStart() throws Exception {
         metricRouter = Mockito.mock(MetricRouter.class);
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
+
         InputStream testStream = new ByteArrayInputStream((PresenceMonitorProcessor.SSEHdr + " " + expectedResourceString + "\n\n").getBytes());
         when(response.getBody()).thenReturn(testStream);
         doAnswer(invocation -> {
             ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
             return responseExtractor.extractData(response);
         }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
-
 
         Semaphore routerSem = new Semaphore(0);
         doAnswer((a) -> {
@@ -166,7 +172,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplate);
+                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder);
 
         String expectedId = p.genExpectedId(expectedResourceInfo);
         client.getKVClient().put(
@@ -201,9 +207,16 @@ public class PresenceMonitorProcessorTest {
         doNothing().when(metricRouter).route(any(), any());
 
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
+        InputStream testStream = new ByteArrayInputStream(("\n\n").getBytes());
+        when(response.getBody()).thenReturn(testStream);
+        doAnswer(invocation -> {
+            ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
+            return responseExtractor.extractData(response);
+        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
+
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplate);
+                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder);
 
 
         // wrap active watch consumer to release a semaphore when done
@@ -220,7 +233,8 @@ public class PresenceMonitorProcessorTest {
                 "\"start\":\"" + rangeStart + "\"," +
                 "\"end\":\"" + rangeEnd + "\"}");
 
-        PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
+        PartitionSlice partitionSlice = p.
+                getPartitionTable().get("id1");
         assertEquals("No resources exist yet so expected table should be empty",
                 partitionSlice.getExpectedTable().size(), 0);
 
