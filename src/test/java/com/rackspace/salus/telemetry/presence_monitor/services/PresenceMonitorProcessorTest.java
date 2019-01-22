@@ -142,6 +142,7 @@ public class PresenceMonitorProcessorTest {
 
     @Before
     public void setUp() throws Exception {
+        partitionTable.forEachKey(1, k -> partitionTable.remove(k));
         taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.setPoolSize(Integer.MAX_VALUE);
         taskScheduler.setThreadNamePrefix("tasks-");

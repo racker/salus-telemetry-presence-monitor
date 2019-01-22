@@ -44,5 +44,3 @@ spring:
 presence-monitor:
   exportPeriod:
     1
-  slice-update-listener:
-    enable: true
