@@ -171,7 +171,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder);
+                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, new ResourceListener());
 
         String expectedId = p.genExpectedId(expectedResourceInfo);
         client.getKVClient().put(
@@ -214,7 +214,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder);
+                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder, new ResourceListener());
 
 
         // wrap active watch consumer to release a semaphore when done

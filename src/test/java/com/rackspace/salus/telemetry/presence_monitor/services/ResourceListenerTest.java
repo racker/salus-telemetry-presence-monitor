@@ -146,7 +146,7 @@ public class ResourceListenerTest {
 
     static class SliceUpdateListener extends ResourceListener {
         SliceUpdateListener(Map<String, PartitionSlice> partitionTable) {
-            super(partitionTable);
+            super();
         }
 
         protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {

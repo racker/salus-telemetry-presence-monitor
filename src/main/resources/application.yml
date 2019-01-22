@@ -7,11 +7,11 @@ presence-monitor:
     EVENT:
       telemetry.events.json
     RESOURCE:
-      telemetry.resources.json
+      resources
   exportPeriod:
     5
   resourceManagerUrl:
-    http://localhost:8082/getResources
+    http://localhost:8085/api/envoys
 etcd:
   url: http://localhost:2479
 worker:

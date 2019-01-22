@@ -25,17 +25,22 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 class ResourceListener implements ConsumerSeekAware {
-    private Map<String, PartitionSlice> partitionTable;
+    ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
-    ResourceListener(Map<String, PartitionSlice> partitionTable) {
-        this.partitionTable = partitionTable;
+    @Autowired
+    ResourceListener() {
+        this.partitionTable = new ConcurrentHashMap<>();
     }
 
     @KafkaListener(topics = "${presence-monitor.kafka-topics.RESOURCE}")
