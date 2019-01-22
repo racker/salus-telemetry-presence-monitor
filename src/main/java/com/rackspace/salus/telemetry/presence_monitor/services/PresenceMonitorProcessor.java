@@ -76,7 +76,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
     private final ResourceListener resourceListener ;
-            //= new ResourceListener(partitionTable);
 
     static final String SSEHdr = "data:";
 
@@ -85,10 +84,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
                              MeterRegistry meterRegistry, KeyHashing hashing,
-                             PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder, ResourceListener resourceListener) {
+                             PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
+                             ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
         this.meterRegistry = meterRegistry;
         this.resourceListener = resourceListener;
-        partitionTable = resourceListener.partitionTable;
+        this.partitionTable = partitionTable;
         this.objectMapper = objectMapper;
         this.etcd = etcd;
         this.envoyResourceManagement = envoyResourceManagement;

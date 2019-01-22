@@ -44,6 +44,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -127,6 +128,12 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     private PresenceMonitorProperties presenceMonitorProperties;
 
+    @Autowired
+    ConcurrentHashMap<String, PartitionSlice> partitionTable;
+
+    @Autowired
+    ResourceListener resourceListener;
+
     @Mock
     ClientHttpResponse response;
 
@@ -171,7 +178,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, new ResourceListener());
+                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
         String expectedId = p.genExpectedId(expectedResourceInfo);
         client.getKVClient().put(
@@ -214,7 +221,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder, new ResourceListener());
+                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
 
         // wrap active watch consumer to release a semaphore when done

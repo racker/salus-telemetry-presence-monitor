@@ -60,7 +60,7 @@ public class ResourceListenerTest {
 
     @Configuration
     public static class TestConfig {
-        @Bean
+        //@Bean
         ResourceListener getRL() {
             String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
                     rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
@@ -145,8 +145,8 @@ public class ResourceListenerTest {
     }
 
     static class SliceUpdateListener extends ResourceListener {
-        SliceUpdateListener(Map<String, PartitionSlice> partitionTable) {
-            super();
+        SliceUpdateListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
+            super(partitionTable);
         }
 
         protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {

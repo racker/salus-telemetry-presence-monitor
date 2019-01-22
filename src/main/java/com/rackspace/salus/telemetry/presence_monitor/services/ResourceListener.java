@@ -35,12 +35,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-class ResourceListener implements ConsumerSeekAware {
+public class ResourceListener implements ConsumerSeekAware {
     ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
     @Autowired
-    ResourceListener() {
-        this.partitionTable = new ConcurrentHashMap<>();
+    public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
+        this.partitionTable = partitionTable;
     }
 
     @KafkaListener(topics = "${presence-monitor.kafka-topics.RESOURCE}")
