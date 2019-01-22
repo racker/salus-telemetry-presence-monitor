@@ -47,7 +47,7 @@ public class ResourceListenerBean {
         return partitionTable;
     }
 
-    @Bean
+    @Bean("resourceListener")
     public ResourceListener getResourceListener() {
         return new ResourceListener(partitionTable);
     }

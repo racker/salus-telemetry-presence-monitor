@@ -34,6 +34,7 @@ import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.presence_monitor.config.ResourceListenerBean;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
@@ -56,6 +57,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -73,7 +75,7 @@ import org.springframework.web.client.RestTemplate;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 public class PresenceMonitorProcessorTest {
     @Configuration
-    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
+    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerBean.class})
     public static class TestConfig {
         @Bean
         MeterRegistry getMeterRegistry() {
@@ -132,6 +134,7 @@ public class PresenceMonitorProcessorTest {
     ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
     @Autowired
+    @Qualifier("resourceListener")
     ResourceListener resourceListener;
 
     @Mock

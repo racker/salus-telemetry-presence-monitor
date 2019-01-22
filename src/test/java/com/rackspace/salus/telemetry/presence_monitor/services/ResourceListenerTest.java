@@ -31,6 +31,8 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -60,7 +62,7 @@ public class ResourceListenerTest {
 
     @Configuration
     public static class TestConfig {
-        //@Bean
+        @Bean
         ResourceListener getRL() {
             String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
                     rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
