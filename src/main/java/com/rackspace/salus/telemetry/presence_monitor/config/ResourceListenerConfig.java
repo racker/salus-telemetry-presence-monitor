@@ -28,16 +28,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 @Configuration
-public class ResourceListenerBean {
-    private static ConcurrentHashMap<String, PartitionSlice> partitionTable = new ConcurrentHashMap<>();
-
+public class ResourceListenerConfig {
     @Bean
     public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
-        return partitionTable;
+        return new ConcurrentHashMap<>();
     }
 
-    @Bean("resourceListener")
-    public ResourceListener getResourceListener() {
-        return new ResourceListener(partitionTable);
+    @Bean
+    public ResourceListener resourceListener() {
+        return new ResourceListener(getPartitionTable());
     }
 }

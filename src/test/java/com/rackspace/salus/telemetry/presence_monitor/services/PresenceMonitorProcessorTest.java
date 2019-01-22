@@ -27,7 +27,7 @@ import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.config.ResourceListenerBean;
+import com.rackspace.salus.telemetry.presence_monitor.config.ResourceListenerConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
@@ -49,6 +49,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
@@ -69,9 +70,10 @@ import static org.mockito.Mockito.*;
 @RunWith(SpringRunner.class)
 @EnableAutoConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class PresenceMonitorProcessorTest {
     @Configuration
-    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerBean.class})
+    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerConfig.class})
     public static class TestConfig {
         @Bean
         MeterRegistry getMeterRegistry() {
@@ -138,7 +140,6 @@ public class PresenceMonitorProcessorTest {
 
     @Before
     public void setUp() throws Exception {
-        partitionTable.forEachKey(1, k -> partitionTable.remove(k));
         taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.setPoolSize(Integer.MAX_VALUE);
         taskScheduler.setThreadNamePrefix("tasks-");

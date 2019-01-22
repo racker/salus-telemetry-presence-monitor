@@ -49,8 +49,7 @@ public class ResourceListener implements ConsumerSeekAware {
             PartitionSlice slice = e.getValue();
             ResourceInfo rinfo = PresenceMonitorProcessor.convert(record.value().getResource());
             String hash = PresenceMonitorProcessor.genExpectedId(rinfo);
-            if ((hash.compareTo(slice.getRangeMin()) >= 0) &&
-                    (hash.compareTo(slice.getRangeMax()) <= 0)) {
+            if (PresenceMonitorProcessor.sliceContains(slice, hash)) {
                 log.trace("record {} used to update slice", record.key());
                 keyFound = true;
                 updateSlice(slice, hash, record.value(), rinfo);

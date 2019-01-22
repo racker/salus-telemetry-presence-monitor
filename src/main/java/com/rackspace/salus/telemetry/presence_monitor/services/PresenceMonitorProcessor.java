@@ -87,7 +87,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
                              MeterRegistry meterRegistry, KeyHashing hashing,
                              PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
-                             @Qualifier("resourceListener") ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
+                             ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
         this.meterRegistry = meterRegistry;
         this.resourceListener = resourceListener;
         this.partitionTable = partitionTable;
@@ -116,6 +116,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         String resourceKey = String.format("%s:%s",
                 resourceInfo.getTenantId(), resourceInfo.getResourceId());
         return hashing.hash(resourceKey);
+    }
+
+    static boolean sliceContains(PartitionSlice slice, String expectedId) {
+        return ((expectedId.compareTo(slice.getRangeMin()) >= 0) &&
+                (expectedId.compareTo(slice.getRangeMax()) <= 0));
     }
 
     private List<Resource> getResources() {
@@ -187,8 +192,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             // Create an entry for the resource
             ResourceInfo resourceInfo = convert(resource);
             String expectedId = genExpectedId(resourceInfo);
-            if ((expectedId.compareTo(newSlice.getRangeMin()) >= 0) &&
-                    expectedId.compareTo(newSlice.getRangeMax()) <= 0) {
+            if (sliceContains(newSlice, expectedId)) {
                 PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
                 expectedEntry.setResourceInfo(resourceInfo);
                 expectedEntry.setActive(false);
