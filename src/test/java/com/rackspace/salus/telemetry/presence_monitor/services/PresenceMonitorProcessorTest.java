@@ -248,25 +248,26 @@ public class PresenceMonitorProcessorTest {
                 partitionSlice.getExpectedTable().size(), 0);
 
         // Now generate an active watch and wait for the sem
+        String activeId = p.genExpectedId(activeResourceInfo);
         client.getKVClient().put(
-                ByteSequence.fromString("/resources/active/1"),
+                ByteSequence.fromString("/resources/active/" + activeId),
                 ByteSequence.fromString(activeResourceInfoString));
         activeSem.acquire();
 
         assertEquals("Entry should be active",
-                partitionSlice.getExpectedTable().get("1").getActive(), true);
+                partitionSlice.getExpectedTable().get(activeId).getActive(), true);
         assertEquals(activeResourceInfo,
-                partitionSlice.getExpectedTable().get("1").getResourceInfo());
-        verify(metricRouter).route(partitionSlice.getExpectedTable().get("1"), KafkaMessageType.EVENT);
+                partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
+        verify(metricRouter).route(partitionSlice.getExpectedTable().get(activeId), KafkaMessageType.EVENT);
 
         // Now delete active entry and see it go inactive
-        client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
+        client.getKVClient().delete(ByteSequence.fromString("/resources/active/" + activeId));
         activeSem.acquire();
 
         assertEquals("Entry should be inactive",
-                partitionSlice.getExpectedTable().get("1").getActive(), false);
+                partitionSlice.getExpectedTable().get(activeId).getActive(), false);
         assertEquals(activeResourceInfo,
-                partitionSlice.getExpectedTable().get("1").getResourceInfo());
+                partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
 
     }
 }

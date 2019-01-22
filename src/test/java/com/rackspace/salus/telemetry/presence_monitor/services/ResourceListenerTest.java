@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
@@ -44,6 +45,8 @@ import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.rackspace.salus.common.util.KeyHashing;
+
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +62,7 @@ import static org.junit.Assert.assertNull;
 @Slf4j
 @ActiveProfiles("test")
 public class ResourceListenerTest {
+    private KeyHashing hashing = new KeyHashing();
 
     @Configuration
     public static class TestConfig {
@@ -127,23 +131,26 @@ public class ResourceListenerTest {
 
     @Test
     public void testListener() throws Exception {
-        String key = "00001";
+        String key = String.format("%s:%s", resourceEvent.getResource().getTenantId(),
+                resourceEvent.getResource().getResourceId());
+        String hash = hashing.hash(key);
+
         // send the message
-        assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
+        assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
         template.send(TOPIC, key, resourceEvent);
         listenerSem.acquire();
-        PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
+        PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
 
         template.send(TOPIC, key, updatedResourceEvent);
         listenerSem.acquire();
-        entry = partitionTable.get(sliceKey).getExpectedTable().get(key);
+        entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
 
         resourceEvent.setOperation(OperationType.DELETE);
         template.send(TOPIC, key, resourceEvent);
         listenerSem.acquire();
-        assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(key));
+        assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
     }
 
     static class SliceUpdateListener extends ResourceListener {
@@ -151,8 +158,8 @@ public class ResourceListenerTest {
             super(partitionTable);
         }
 
-        protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
-            super.updateSlice(slice, key, resourceEvent);
+        protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
+            super.updateSlice(slice, key, resourceEvent, rinfo);
             listenerSem.release();
         }
 

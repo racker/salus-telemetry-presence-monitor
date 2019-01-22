@@ -26,17 +26,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+
 @Slf4j
 public class ResourceListener implements ConsumerSeekAware {
-    ConcurrentHashMap<String, PartitionSlice> partitionTable;
+    private ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
     @Autowired
     public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
@@ -48,11 +47,13 @@ public class ResourceListener implements ConsumerSeekAware {
         boolean keyFound = false;
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
             PartitionSlice slice = e.getValue();
-            if ((record.key().compareTo(slice.getRangeMin()) >= 0) &&
-                    (record.key().compareTo(slice.getRangeMax()) <= 0)) {
+            ResourceInfo rinfo = PresenceMonitorProcessor.convert(record.value().getResource());
+            String hash = PresenceMonitorProcessor.genExpectedId(rinfo);
+            if ((hash.compareTo(slice.getRangeMin()) >= 0) &&
+                    (hash.compareTo(slice.getRangeMax()) <= 0)) {
                 log.trace("record {} used to update slice", record.key());
                 keyFound = true;
-                updateSlice(slice, record.key(), record.value());
+                updateSlice(slice, hash, record.value(), rinfo);
                 break;
             }
         }
@@ -62,9 +63,8 @@ public class ResourceListener implements ConsumerSeekAware {
     }
 
     // synchronized to prevent slice from being updated simultaneously when a new slice is added
-    protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent) {
+    synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
         boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
-        ResourceInfo rinfo = PresenceMonitorProcessor.convert(resourceEvent.getResource());
         if (!(resourceEvent.getOperation().equals(OperationType.DELETE)) && enabled) {
             PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
             PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);

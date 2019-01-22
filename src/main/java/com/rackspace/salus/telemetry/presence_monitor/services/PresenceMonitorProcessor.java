@@ -73,7 +73,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter startedWork;
     private final Counter updatedWork;
     private final Counter stoppedWork;
-    private final KeyHashing hashing;
+    private static KeyHashing hashing = new KeyHashing();
     private final PresenceMonitorProperties props;
     private final RestTemplate restTemplate;
     private final ResourceListener resourceListener ;
@@ -96,7 +96,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
         this.metricExporter.setPartitionTable(partitionTable);
-        this.hashing = hashing;
         this.props = props;
         this.restTemplate = restTemplateBuilder.build();
 
@@ -112,7 +111,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return strings[strings.length - 1];
     }
 
-    String genExpectedId(ResourceInfo resourceInfo) {
+    static String genExpectedId(ResourceInfo resourceInfo) {
         String resourceKey = String.format("%s:%s",
                 resourceInfo.getTenantId(), resourceInfo.getResourceId());
         return hashing.hash(resourceKey);
