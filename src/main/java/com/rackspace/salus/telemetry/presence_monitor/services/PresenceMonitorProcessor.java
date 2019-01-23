@@ -33,7 +33,7 @@ import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
 import io.micrometer.core.instrument.Counter;
@@ -187,8 +187,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
         log.debug("Found {} expected envoys", resources.size());
         resources.forEach(resource -> {
-            if (!resource.getPresenceMonitoringEnabled())
-                return;
             // Create an entry for the resource
             ResourceInfo resourceInfo = convert(resource);
             String expectedId = genExpectedId(resourceInfo);

@@ -19,7 +19,7 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;

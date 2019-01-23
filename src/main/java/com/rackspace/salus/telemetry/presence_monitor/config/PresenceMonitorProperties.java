@@ -18,7 +18,7 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;

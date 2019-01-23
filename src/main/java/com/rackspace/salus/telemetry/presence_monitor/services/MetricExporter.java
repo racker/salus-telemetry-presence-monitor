@@ -1,7 +1,7 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;

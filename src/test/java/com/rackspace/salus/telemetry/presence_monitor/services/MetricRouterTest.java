@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
