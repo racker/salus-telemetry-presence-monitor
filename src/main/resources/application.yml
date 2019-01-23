@@ -6,14 +6,41 @@ presence-monitor:
       telemetry.metrics.json
     EVENT:
       telemetry.events.json
+    RESOURCE:
+      resources
   exportPeriod:
     5
+  resourceManagerUrl:
+    http://localhost:8085/api/envoys
 etcd:
   url: http://localhost:2479
 worker:
   prefix:
     /workAllocations/PRESENCE_MONITOR
 spring:
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: presence-monitor-${random.value}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages:
+                com.rackspace.salus.telemetry.messaging
   main:
     web-environment:
       false
+
+---
+
+spring:
+  profiles: test
+  
+presence-monitor:
+  exportPeriod:
+    1

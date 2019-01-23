@@ -1,49 +1,79 @@
-package com.rackspace.salus.telemetry.presence_monitor.services;
+/*
+ *    Copyright 2019 Rackspace US, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ *
+ *
+ */
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
+package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.salus.telemetry.etcd.config.KeyHashing;
+import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
+import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.config.ResourceListenerConfig;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.net.URI;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.Semaphore;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.web.client.ResponseExtractor;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @RunWith(SpringRunner.class)
+@EnableAutoConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class PresenceMonitorProcessorTest {
     @Configuration
-    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class})
+    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerConfig.class})
     public static class TestConfig {
         @Bean
         MeterRegistry getMeterRegistry() {
@@ -56,11 +86,11 @@ public class PresenceMonitorProcessorTest {
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
+    @MockBean
     MetricExporter metricExporter;
 
-    @MockBean
-    MetricRouter metricRouter;
+    @Mock
+    private MetricRouter metricRouter;
 
     @Autowired
     SimpleMeterRegistry simpleMeterRegistry;
@@ -74,20 +104,39 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     KeyHashing hashing;
 
-    private String expectedResourceInfoString =
-            "{\"identifierName\":\"os\",\"identifierValue\":\"LINUX\"," +
-                    "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"envoyId\":\"abcde\"," +
-                    "\"tenantId\":\"123456\",\"address\":\"host:1234\"}";
+    @Mock
+    RestTemplate restTemplate;
+
+    @MockBean
+    RestTemplateBuilder restTemplateBuilder;
+
+    private String expectedResourceString =
+            "{\"resourceId\":\"os:LINUX\"," +
+                    "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_64\"},\"id\":1," +
+                    "\"presenceMonitoringEnabled\":true," +
+                    "\"tenantId\":\"123456\"}";
+
+    private String activeResourceInfoString;
 
     private ResourceInfo expectedResourceInfo;
-
-    private String activeResourceInfoString = expectedResourceInfoString.replace("host:1234", "host2:3456");
 
     private ResourceInfo activeResourceInfo;
 
     private String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
             rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
+    @Autowired
+    private PresenceMonitorProperties presenceMonitorProperties;
+
+    @Autowired
+    ConcurrentHashMap<String, PartitionSlice> partitionTable;
+
+    @Autowired
+    @Qualifier("resourceListener")
+    ResourceListener resourceListener;
+
+    @Mock
+    ClientHttpResponse response;
 
     @Before
     public void setUp() throws Exception {
@@ -102,35 +151,40 @@ public class PresenceMonitorProcessorTest {
         client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
 
         envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-        expectedResourceInfo = objectMapper.readValue(expectedResourceInfoString, ResourceInfo.class);
+        Resource expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
+        expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResource);
+        activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
+
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
-        PresenceMonitorProperties presenceMonitorProperties = new PresenceMonitorProperties();
-        presenceMonitorProperties.setExportPeriod(Duration.ofSeconds(1));
-        metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
+        when(restTemplateBuilder.build()).thenReturn(restTemplate);
     }
 
 
     @Test
     public void testProcessorStart() throws Exception {
+        MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
+
+        InputStream testStream = new ByteArrayInputStream((PresenceMonitorProcessor.SSEHdr + " " + expectedResourceString + "\n\n").getBytes());
+        when(response.getBody()).thenReturn(testStream);
+        doAnswer(invocation -> {
+            ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
+            return responseExtractor.extractData(response);
+        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
+
         Semaphore routerSem = new Semaphore(0);
         doAnswer((a) -> {
             routerSem.release();
             return null;
         }).when(metricRouter).route(any(), any());
 
-        client.getKVClient().put(
-                ByteSequence.fromString("/resources/expected/1"),
-                ByteSequence.fromString(expectedResourceInfoString)).join();
-
-        client.getKVClient().put(
-                ByteSequence.fromString("/resources/active/1"),
-                ByteSequence.fromString(activeResourceInfoString)).join();
-
-
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry);
+                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
+        String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo);
+        client.getKVClient().put(
+                ByteSequence.fromString("/resources/active/" + expectedId),
+                ByteSequence.fromString(activeResourceInfoString)).join();
 
         p.start("id1", "{" +
                 "\"start\":\"" + rangeStart + "\"," +
@@ -140,7 +194,7 @@ public class PresenceMonitorProcessorTest {
         assertEquals("range start should be all zeros", rangeStart, partitionSlice.getRangeMin());
         assertEquals("range end should be all f's", rangeEnd, partitionSlice.getRangeMax());
 
-        PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get("1");
+        PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get(expectedId);
         assertEquals(activeResourceInfo, expectedEntry.getResourceInfo());
         assertEquals(true, expectedEntry.getActive());
         routerSem.acquire();
@@ -151,7 +205,6 @@ public class PresenceMonitorProcessorTest {
                 "\"end\":\"" + rangeEnd + "\"}");
 
         assertEquals(p.getPartitionTable().size(), 0);
-        assertEquals(partitionSlice.getExpectedWatch().getRunning(), false);
         assertEquals(partitionSlice.getActiveWatch().getRunning(), false);
     }
 
@@ -159,19 +212,18 @@ public class PresenceMonitorProcessorTest {
     public void testProcessorWatchConsumers() throws Exception {
         doNothing().when(metricRouter).route(any(), any());
 
+        MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
+        InputStream testStream = new ByteArrayInputStream(("\n\n").getBytes());
+        when(response.getBody()).thenReturn(testStream);
+        doAnswer(invocation -> {
+            ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
+            return responseExtractor.extractData(response);
+        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
+
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry());
+                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
-
-        // wrap expected watch consumer to release a semaphore when done
-        Semaphore expectedSem = new Semaphore(0);
-        BiConsumer<WatchResponse, PartitionSlice> originalExpectedConsumer = p.getExpectedWatchResponseConsumer();
-        BiConsumer<WatchResponse, PartitionSlice> newExpectedConsumer = (wr, pe) -> {
-            originalExpectedConsumer.accept(wr, pe);
-            expectedSem.release();
-        };
-        p.setExpectedWatchResponseConsumer(newExpectedConsumer);
 
         // wrap active watch consumer to release a semaphore when done
         Semaphore activeSem = new Semaphore(0);
@@ -187,50 +239,32 @@ public class PresenceMonitorProcessorTest {
                 "\"start\":\"" + rangeStart + "\"," +
                 "\"end\":\"" + rangeEnd + "\"}");
 
-        PartitionSlice partitionSlice = p.getPartitionTable().get("id1");
+        PartitionSlice partitionSlice = p.
+                getPartitionTable().get("id1");
         assertEquals("No resources exist yet so expected table should be empty",
                 partitionSlice.getExpectedTable().size(), 0);
 
-        // Now generate an expected watch and wait for the sem
-        client.getKVClient().put(
-                ByteSequence.fromString("/resources/expected/1"),
-                ByteSequence.fromString(expectedResourceInfoString));
-        expectedSem.acquire();
-
-        assertEquals("The watch should have added one entry",
-                partitionSlice.getExpectedTable().size(), 1);
-        assertEquals("Entry should be inactive",
-                partitionSlice.getExpectedTable().get("1").getActive(), false);
-        assertEquals(expectedResourceInfo,
-                partitionSlice.getExpectedTable().get("1").getResourceInfo());
-
-
         // Now generate an active watch and wait for the sem
+        String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo);
         client.getKVClient().put(
-                ByteSequence.fromString("/resources/active/1"),
+                ByteSequence.fromString("/resources/active/" + activeId),
                 ByteSequence.fromString(activeResourceInfoString));
         activeSem.acquire();
 
         assertEquals("Entry should be active",
-                partitionSlice.getExpectedTable().get("1").getActive(), true);
+                partitionSlice.getExpectedTable().get(activeId).getActive(), true);
         assertEquals(activeResourceInfo,
-                partitionSlice.getExpectedTable().get("1").getResourceInfo());
-        verify(metricRouter).route(partitionSlice.getExpectedTable().get("1"), KafkaMessageType.EVENT);
+                partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
+        verify(metricRouter).route(partitionSlice.getExpectedTable().get(activeId), KafkaMessageType.EVENT);
 
         // Now delete active entry and see it go inactive
-        client.getKVClient().delete(ByteSequence.fromString("/resources/active/1"));
+        client.getKVClient().delete(ByteSequence.fromString("/resources/active/" + activeId));
         activeSem.acquire();
 
         assertEquals("Entry should be inactive",
-                partitionSlice.getExpectedTable().get("1").getActive(), false);
+                partitionSlice.getExpectedTable().get(activeId).getActive(), false);
         assertEquals(activeResourceInfo,
-                partitionSlice.getExpectedTable().get("1").getResourceInfo());
+                partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
 
-        // Now delete expected entry and see it removed from the table
-        client.getKVClient().delete(ByteSequence.fromString("/resources/expected/1"));
-        expectedSem.acquire();
-
-        assertEquals("Entry should be gone",
-                partitionSlice.getExpectedTable().containsKey("1"), false);
     }
 }

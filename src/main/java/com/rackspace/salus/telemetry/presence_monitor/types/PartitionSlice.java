@@ -16,7 +16,6 @@ public class PartitionSlice {
     }
     String rangeMin;
     String rangeMax;
-    PartitionWatcher expectedWatch;
     PartitionWatcher activeWatch;
     ConcurrentHashMap<String, ExpectedEntry> expectedTable;
 }

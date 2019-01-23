@@ -1,3 +1,21 @@
+/*
+ *    Copyright 2019 Rackspace US, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ *
+ *
+ */
+
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
@@ -7,26 +25,38 @@ import com.coreos.jetcd.kv.GetResponse;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.common.workpart.WorkProcessor;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
+import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 @Component
 @Slf4j
@@ -44,20 +74,32 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter startedWork;
     private final Counter updatedWork;
     private final Counter stoppedWork;
+    private static KeyHashing hashing = new KeyHashing();
+    private final PresenceMonitorProperties props;
+    private final RestTemplate restTemplate;
+    private final ResourceListener resourceListener;
+
+    static final String SSEHdr = "data:";
 
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry) {
+                             MeterRegistry meterRegistry, KeyHashing hashing,
+                             PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
+                             ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
         this.meterRegistry = meterRegistry;
-        partitionTable = new ConcurrentHashMap<>();
+        this.resourceListener = resourceListener;
+        this.partitionTable = partitionTable;
         this.objectMapper = objectMapper;
         this.etcd = etcd;
         this.envoyResourceManagement = envoyResourceManagement;
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
         this.metricExporter.setPartitionTable(partitionTable);
+        this.props = props;
+        this.restTemplate = restTemplateBuilder.build();
+
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
         updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
@@ -70,6 +112,51 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return strings[strings.length - 1];
     }
 
+    static String genExpectedId(ResourceInfo resourceInfo) {
+        String resourceKey = String.format("%s:%s",
+                resourceInfo.getTenantId(), resourceInfo.getResourceId());
+        return hashing.hash(resourceKey);
+    }
+
+    static boolean sliceContains(PartitionSlice slice, String expectedId) {
+        return ((expectedId.compareTo(slice.getRangeMin()) >= 0) &&
+                (expectedId.compareTo(slice.getRangeMax()) <= 0));
+    }
+
+    private List<Resource> getResources() {
+        // Stop the resourceListener while reading from the resource manager
+        synchronized (resourceListener) {
+            List<Resource> resources = new ArrayList<>();
+
+            restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
+            }, response -> {
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
+                    if (line.length() > SSEHdr.length())
+                        try {
+                            Resource resource;
+                            // remove the "data:" hdr
+                            resource = objectMapper.readValue(line.substring(SSEHdr.length()), Resource.class);
+                            resources.add(resource);
+                        } catch (IOException e) {
+                            log.warn("Failed to parse Resource", e);
+                        }
+                }
+                return response;
+            });
+            return resources;
+        }
+    }
+
+    static ResourceInfo convert(Resource resource) {
+        ResourceInfo ri = new ResourceInfo();
+        ri.setResourceId(resource.getResourceId());
+        ri.setLabels(resource.getLabels());
+        ri.setTenantId(resource.getTenantId());
+        return ri;
+    }
+
     @Override
     public void start(String id, String content) {
         log.info("Starting work on id={}, content={}", id, content);
@@ -79,10 +166,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             taskScheduler.submit(metricExporter);
             exporterStarted = true;
         }
+
         PartitionSlice newSlice = new PartitionSlice();
         meterRegistry.gaugeMapSize("partitionExpectedSize",
-            Collections.singletonList(Tag.of("id", id)),
-            newSlice.getExpectedTable());
+                Collections.singletonList(Tag.of("id", id)),
+                newSlice.getExpectedTable());
 
         JsonNode workContent;
         try {
@@ -95,23 +183,22 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMin(workContent.get("start").asText());
 
         // Get the expected entries
-        GetResponse expectedResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_EXPECTED, newSlice.getRangeMin(),
-                newSlice.getRangeMax()).join();
-        log.debug("Found {} expected envoys", expectedResponse.getCount());
-        expectedResponse.getKvs().forEach(kv -> {
-            // Create an entry for the kv
-            String k = getExpectedId(kv);
-            ResourceInfo resourceInfo;
-            PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
-            try {
-                resourceInfo = objectMapper.readValue(kv.getValue().getBytes(), ResourceInfo.class);
-            } catch (IOException e) {
-                log.warn("Failed to parse ResourceInfo", e);
-                return;
+        List<Resource> resources = getResources();
+
+        log.debug("Found {} expected envoys", resources.size());
+        resources.forEach(resource -> {
+            // Create an entry for the resource
+            ResourceInfo resourceInfo = convert(resource);
+            String expectedId = genExpectedId(resourceInfo);
+            if (sliceContains(newSlice, expectedId)) {
+                PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
+                expectedEntry.setResourceInfo(resourceInfo);
+                expectedEntry.setActive(false);
+                newSlice.getExpectedTable().put(expectedId, expectedEntry);
+                log.trace("record {} used to update slice", expectedId);
+            } else {
+                log.trace("record {} ignored", expectedId);
             }
-            expectedEntry.setResourceInfo(resourceInfo);
-            expectedEntry.setActive(false);
-            newSlice.getExpectedTable().put(k, expectedEntry);
         });
 
         // Get the active  entries
@@ -136,13 +223,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             entry.setResourceInfo(resourceInfo);
         });
 
-        newSlice.setExpectedWatch(new PartitionWatcher("expected-" + id,
-                taskScheduler, Keys.FMT_RESOURCES_EXPECTED,
-                expectedResponse.getHeader().getRevision(),
-                newSlice, expectedWatchResponseConsumer,
-                envoyResourceManagement));
-        newSlice.getExpectedWatch().start();
-
         newSlice.setActiveWatch(new PartitionWatcher("active-" + id,
                 taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
                 activeResponse.getHeader().getRevision(),
@@ -155,57 +235,37 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
 
-    // Handle watch events from the expected keys
-    BiConsumer<WatchResponse, PartitionSlice> expectedWatchResponseConsumer = (watchResponse, partitionSlice) ->
-        watchResponse.getEvents().forEach(event -> {
-            String eventKey;
-            ResourceInfo resourceInfo;
-            PartitionSlice.ExpectedEntry watchEntry;
-            if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-                // add new entry
-                eventKey = getExpectedId(event.getKeyValue());
-                watchEntry = new PartitionSlice.ExpectedEntry();
-                try {
-                    resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
-                } catch (IOException e) {
-                    log.warn("Failed to parse ResourceInfo {}", e);
-                    return;
-                }
-                watchEntry.setResourceInfo(resourceInfo);
-                watchEntry.setActive(false);
-                partitionSlice.getExpectedTable().put(eventKey, watchEntry);
-            } else {
-                // Delete old entry
-                eventKey = getExpectedId(event.getPrevKV());
-
-                if (partitionSlice.getExpectedTable().remove(eventKey) == null) {
-                    log.warn("Failed to find ExpectedEntry to delete {}", eventKey);
-                }
-
-            }
-        });
-
-
     // Handle watch events from the active keys
     BiConsumer<WatchResponse, PartitionSlice> activeWatchResponseConsumer = (watchResponse, partitionSlice) ->
-        watchResponse.getEvents().forEach(event -> {
-            String eventKey;
-            ResourceInfo resourceInfo;
-            Boolean activeValue = false;
-            if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
-                eventKey = getExpectedId(event.getKeyValue());
-                activeValue = true;
-            } else {
-                eventKey = getExpectedId(event.getPrevKV());
-            }
-            if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
-                PartitionSlice.ExpectedEntry expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
-                if (expectedEntry.getActive() != activeValue) {
-                    expectedEntry.setActive(activeValue);
-                    metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
+            watchResponse.getEvents().forEach(event -> {
+                String eventKey;
+                ResourceInfo resourceInfo;
+                Boolean activeValue = false;
+                PartitionSlice.ExpectedEntry expectedEntry;
+                if (Bits.isNewKeyEvent(event) || Bits.isUpdateKeyEvent(event)) {
+                    eventKey = getExpectedId(event.getKeyValue());
+                    activeValue = true;
+                } else {
+                    eventKey = getExpectedId(event.getPrevKV());
                 }
-                // Update resource info if we have it
-                if (activeValue) {
+                if (partitionSlice.getExpectedTable().containsKey(eventKey)) {
+                    expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
+                    if (expectedEntry.getActive() != activeValue) {
+                        expectedEntry.setActive(activeValue);
+                        metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
+                    }
+                    // Update resource info if we have it
+                    if (activeValue) {
+                        try {
+                            resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
+                        } catch (IOException e) {
+                            log.warn("Failed to parse ResourceInfo {}", e);
+                            return;
+                        }
+                        expectedEntry.setResourceInfo(resourceInfo);
+                    }
+                } else {
+                    expectedEntry = new PartitionSlice.ExpectedEntry();
                     try {
                         resourceInfo = objectMapper.readValue(event.getKeyValue().getValue().getBytes(), ResourceInfo.class);
                     } catch (IOException e) {
@@ -213,11 +273,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                         return;
                     }
                     expectedEntry.setResourceInfo(resourceInfo);
+                    expectedEntry.setActive(activeValue);
+                    partitionSlice.getExpectedTable().put(eventKey, expectedEntry);
+                    metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
                 }
-            } else {
-                log.warn("Failed to find ExpectedEntry to update {}", eventKey);
-            }
-        });
+            });
 
     @Override
     public void update(String id, String content) {
@@ -237,7 +297,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         if (slice != null) {
             partitionTable.remove(id);
             slice.getActiveWatch().stop();
-            slice.getExpectedWatch().stop();
         }
     }
 }

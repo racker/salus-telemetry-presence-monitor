@@ -24,7 +24,7 @@ import com.rackspace.salus.model.AccountType;
 import com.rackspace.salus.model.ExternalMetric;
 import com.rackspace.salus.model.MonitoringSystem;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
-import com.rackspace.salus.telemetry.presence_monitor.types.KafkaMessageType;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -71,9 +71,12 @@ public class MetricRouter {
         ResourceInfo resourceInfo = expectedEntry.getResourceInfo();
         String tenantId = resourceInfo.getTenantId();
         String envoyId = resourceInfo.getEnvoyId();
-        String resourceKey = String.format("%s:%s:%s", tenantId,
-            resourceInfo.getIdentifierName(), resourceInfo.getIdentifierValue());
+        String resourceKey = String.format("%s:%s", tenantId,
+            resourceInfo.getResourceId());
         Map<String, String> envoyLabels = resourceInfo.getLabels();
+        if (envoyLabels == null) {
+            envoyLabels = Collections.emptyMap();
+        }
         Map<String, String> systemMetadata;
         if (envoyId == null) {
             systemMetadata = Collections.emptyMap();

@@ -18,22 +18,24 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.convert.DurationUnit;
-import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.Map;
+import com.rackspace.salus.telemetry.presence_monitor.services.ResourceListener;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-@ConfigurationProperties("presence-monitor")
-@Component
-@Data
-public class PresenceMonitorProperties {
-    Map<KafkaMessageType, String> kafkaTopics;
-    @DurationUnit(ChronoUnit.SECONDS)
-    Duration exportPeriod;
-    String resourceManagerUrl;
+import java.util.concurrent.ConcurrentHashMap;
+
+
+@Configuration
+public class ResourceListenerConfig {
+    @Bean
+    public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
+        return new ConcurrentHashMap<>();
+    }
+
+    @Bean
+    public ResourceListener resourceListener() {
+        return new ResourceListener(getPartitionTable());
+    }
 }
