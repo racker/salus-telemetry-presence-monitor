@@ -7,7 +7,7 @@ presence-monitor:
     EVENT:
       telemetry.events.json
     RESOURCE:
-      resources
+      telemetry.resources.json
   exportPeriod:
     5
   resourceManagerUrl:
