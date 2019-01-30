@@ -40,7 +40,8 @@ spring:
 
 spring:
   profiles: test
-  
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
 presence-monitor:
   exportPeriod:
     1
