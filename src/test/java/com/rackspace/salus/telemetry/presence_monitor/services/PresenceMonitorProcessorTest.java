@@ -61,8 +61,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -72,7 +70,6 @@ import org.springframework.web.client.RestTemplate;
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@EmbeddedKafka(topics = "telemetry.resources.json")
 public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerConfig.class})
@@ -139,14 +136,6 @@ public class PresenceMonitorProcessorTest {
 
     @Mock
     ClientHttpResponse response;
-
-    @BeforeClass
-    public static void suiteSetup() {
-        // using the annotation approach from https://docs.spring.io/spring-kafka/reference/html/_reference.html#_junit4_class_rule
-        System.setProperty(
-            EmbeddedKafkaBroker.BROKER_LIST_PROPERTY,
-            "spring.kafka.bootstrap-servers");
-    }
 
     @Before
     public void setUp() throws Exception {
