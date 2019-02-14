@@ -1,27 +1,28 @@
 /*
- *    Copyright 2019 Rackspace US, Inc.
+ * Copyright 2019 Rackspace US, Inc.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- *
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
@@ -29,20 +30,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 
 @Slf4j
 public class ResourceListener implements ConsumerSeekAware {
+
+    private final String topic;
     private ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
     @Autowired
-    public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
+    public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable,
+                            KafkaTopicProperties kafkaTopicProperties) {
         this.partitionTable = partitionTable;
+
+        this.topic = kafkaTopicProperties.getResources();
     }
 
-    @KafkaListener(topics = "${presence-monitor.kafka-topics.RESOURCE}")
+    public String getTopic() {
+        return topic;
+    }
+
+    @KafkaListener(topics = "#{__listener.topic}")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
         boolean keyFound = false;
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {

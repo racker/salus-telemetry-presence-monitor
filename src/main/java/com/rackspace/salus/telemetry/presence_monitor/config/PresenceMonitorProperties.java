@@ -16,10 +16,8 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;
@@ -29,7 +27,6 @@ import org.springframework.stereotype.Component;
 @Component
 @Data
 public class PresenceMonitorProperties {
-    Map<KafkaMessageType, String> kafkaTopics;
     @DurationUnit(ChronoUnit.SECONDS)
     Duration exportPeriod = Duration.ofSeconds(60);
     String resourceManagerUrl;

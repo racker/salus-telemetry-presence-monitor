@@ -1,13 +1,4 @@
 presence-monitor:
-  kafka-topics:
-    LOG:
-      telemetry.logs.json
-    METRIC:
-      telemetry.metrics.json
-    EVENT:
-      telemetry.events.json
-    RESOURCE:
-      telemetry.resources.json
   exportPeriod:
     5
   resourceManagerUrl:
