@@ -1,37 +1,41 @@
 /*
- *    Copyright 2019 Rackspace US, Inc.
+ * Copyright 2019 Rackspace US, Inc.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- *
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
+import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -45,15 +49,10 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableAutoConfiguration
+@EnableSalusKafkaMessaging
 @DirtiesContext
 @Slf4j
 @ActiveProfiles("test")
@@ -78,8 +77,8 @@ public class ResourceListenerTest {
 
     private static String sliceKey = "id1";
 
-    @Value("${presence-monitor.kafka-topics.RESOURCE}")
-    private String TOPIC;
+    @Autowired
+    KafkaTopicProperties kafkaTopicProperties;
 
     @Autowired
     private KafkaTemplate template;
@@ -133,25 +132,25 @@ public class ResourceListenerTest {
 
         // send the message
         assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
-        template.send(TOPIC, key, resourceEvent);
+        template.send(kafkaTopicProperties.getResources(), key, resourceEvent);
         listenerSem.acquire();
         PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
 
-        template.send(TOPIC, key, updatedResourceEvent);
+        template.send(kafkaTopicProperties.getResources(), key, updatedResourceEvent);
         listenerSem.acquire();
         entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
 
         resourceEvent.setOperation(OperationType.DELETE);
-        template.send(TOPIC, key, resourceEvent);
+        template.send(kafkaTopicProperties.getResources(), key, resourceEvent);
         listenerSem.acquire();
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
     }
 
     static class SliceUpdateListener extends ResourceListener {
         SliceUpdateListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
-            super(partitionTable);
+            super(partitionTable, new KafkaTopicProperties());
         }
 
         protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
