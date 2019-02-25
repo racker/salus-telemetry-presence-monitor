@@ -27,6 +27,7 @@ import com.coreos.jetcd.Client;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
@@ -70,6 +71,7 @@ import org.springframework.web.client.RestTemplate;
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@EnableSalusKafkaMessaging
 public class PresenceMonitorProcessorTest {
     @Configuration
     @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerConfig.class})
