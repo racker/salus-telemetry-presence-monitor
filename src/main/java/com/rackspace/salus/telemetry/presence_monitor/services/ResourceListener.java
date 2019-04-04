@@ -51,40 +51,40 @@ public class ResourceListener implements ConsumerSeekAware {
 
     @KafkaListener(topics = "#{__listener.topic}")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
-        boolean keyFound = false;
-        for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
-            PartitionSlice slice = e.getValue();
-            ResourceInfo rinfo = PresenceMonitorProcessor.convert(record.value().getResource());
-            String hash = PresenceMonitorProcessor.genExpectedId(rinfo);
-            if (PresenceMonitorProcessor.sliceContains(slice, hash)) {
-                log.trace("record {} used to update slice", record.key());
-                keyFound = true;
-                updateSlice(slice, hash, record.value(), rinfo);
-                break;
-            }
-        }
-        if (!keyFound) {
-            log.trace("record {} ignored", record.key());
-        }
+        // boolean keyFound = false;
+        // for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
+        //     PartitionSlice slice = e.getValue();
+        //     ResourceInfo rinfo = PresenceMonitorProcessor.convert(record.value().getResource());
+        //     String hash = PresenceMonitorProcessor.genExpectedId(rinfo);
+        //     if (PresenceMonitorProcessor.sliceContains(slice, hash)) {
+        //         log.trace("record {} used to update slice", record.key());
+        //         keyFound = true;
+        //         updateSlice(slice, hash, record.value(), rinfo);
+        //         break;
+        //     }
+        // }
+        // if (!keyFound) {
+        //     log.trace("record {} ignored", record.key());
+        // }
     }
 
     // synchronized to prevent slice from being updated simultaneously when a new slice is added
     synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
-        boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
-        if (!(resourceEvent.getOperation().equals(OperationType.DELETE)) && enabled) {
-            PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
-            PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
-            newEntry.setResourceInfo(rinfo);
-            if (oldEntry != null) {
-                newEntry.setActive(oldEntry.getActive());
-            } else {
-                newEntry.setActive(false);
-            }
-            slice.getExpectedTable().put(key, newEntry);
+        // boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
+        // if (!(resourceEvent.getOperation().equals(OperationType.DELETE)) && enabled) {
+        //     PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
+        //     PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
+        //     newEntry.setResourceInfo(rinfo);
+        //     if (oldEntry != null) {
+        //         newEntry.setActive(oldEntry.getActive());
+        //     } else {
+        //         newEntry.setActive(false);
+        //     }
+        //     slice.getExpectedTable().put(key, newEntry);
 
-        } else {
-            slice.getExpectedTable().remove(key);
-        }
+        // } else {
+        //     slice.getExpectedTable().remove(key);
+        // }
     }
 
     @Override
