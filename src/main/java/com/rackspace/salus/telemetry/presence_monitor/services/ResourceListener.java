@@ -35,6 +35,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 
@@ -63,20 +64,33 @@ public class ResourceListener implements ConsumerSeekAware {
 
     @KafkaListener(topics = "#{__listener.topic}")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
+        Resource resource = null;
+        ResourceInfo rinfo = null;
         final HashMap<String, String> urlVariables = new HashMap<>();
         urlVariables.put("tenantId", record.value().getTenantId());
         urlVariables.put("resourceId", record.value().getResourceId());
-        ResponseEntity<Resource> resp = restTemplate.getForEntity(
-                props.getResourceManagerUrl() + "/api/tenant/{tenantId}/resources/{resourceId}",
-                Resource.class, urlVariables);
-        if (resp.getStatusCode() != HttpStatus.OK) {
-            log.error("Presence monitor failed to read resource: " + record, resp);
-            // Note if resource manager is down for a while, presence monitor will get out of sync
-            //  and will need to be restarted in order to refresh its' expected table.
-            return;
+        try {
+            ResponseEntity<Resource> resp = restTemplate.getForEntity(
+                    props.getResourceManagerUrl() + "/api/tenant/{tenantId}/resources/{resourceId}",
+                    Resource.class, urlVariables);
+            if (resp.getStatusCode() != HttpStatus.OK) {
+                log.error("Presence monitor failed to read resource: " + record, resp);
+                // Note if resource manager is down for a while, presence monitor will get out of sync
+                //  and will need to be restarted in order to refresh its' expected table.
+                return;
+            }
+            resource = resp.getBody();
+            rinfo = PresenceMonitorProcessor.convert(resource);
+        } catch(Exception e) {
+            // exit on any error except NOT_FOUND
+            if (!(e instanceof HttpClientErrorException) ||
+                    ((HttpClientErrorException) e).getStatusCode() != HttpStatus.NOT_FOUND) {
+                log.error("Presence monitor failed to read resource: " + record, e);
+                // Note if resource manager is down for a while, presence monitor will get out of sync
+                //  and will need to be restarted in order to refresh its' expected table.
+                return;
+            }
         }
-        Resource resource = resp.getBody();
-        ResourceInfo rinfo = PresenceMonitorProcessor.convert(resource);
         String hash = PresenceMonitorProcessor.genExpectedId(record.value().getTenantId(),
                 record.value().getResourceId());
         boolean keyFound = false;
