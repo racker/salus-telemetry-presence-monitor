@@ -27,6 +27,7 @@ import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
@@ -38,6 +39,8 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -60,6 +63,9 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class ResourceListenerTest {
     private KeyHashing hashing = new KeyHashing();
 
+    @MockBean
+    static RestTemplateBuilder restTemplateBuilder;
+
     @Configuration
     public static class TestConfig {
         @Bean
@@ -72,7 +78,7 @@ public class ResourceListenerTest {
             slice.setRangeMin(rangeStart);
             slice.setRangeMax(rangeEnd);
             partitionTable.put(sliceKey, slice);
-            return new SliceUpdateListener(partitionTable);
+            return new SliceUpdateListener(partitionTable, restTemplateBuilder);
         }
     }
 
@@ -151,12 +157,12 @@ public class ResourceListenerTest {
     }
 
     static class SliceUpdateListener extends ResourceListener {
-        SliceUpdateListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
-            super(partitionTable, new KafkaTopicProperties());
+        SliceUpdateListener(ConcurrentHashMap<String, PartitionSlice> partitionTable, RestTemplateBuilder restTemplateBuilder) {
+            super(partitionTable, new KafkaTopicProperties(), restTemplateBuilder, new PresenceMonitorProperties());
         }
 
-        protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
-            super.updateSlice(slice, key, resourceEvent, rinfo);
+        protected synchronized void updateSlice(PartitionSlice slice, String key, Resource resource, ResourceInfo rinfo) {
+            super.updateSlice(slice, key, resource, rinfo);
             listenerSem.release();
         }
 

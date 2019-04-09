@@ -2,7 +2,7 @@ presence-monitor:
   exportPeriod:
     5
   resourceManagerUrl:
-    http://localhost:8085/api/envoys
+    http://localhost:8085
 etcd:
   url: http://localhost:2479
 worker:

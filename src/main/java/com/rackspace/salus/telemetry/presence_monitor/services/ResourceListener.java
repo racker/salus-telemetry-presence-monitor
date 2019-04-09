@@ -17,18 +17,25 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
-import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
+import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
+import org.springframework.web.client.RestTemplate;
 
 
 @Slf4j
@@ -36,13 +43,18 @@ public class ResourceListener implements ConsumerSeekAware {
 
     private final String topic;
     private ConcurrentHashMap<String, PartitionSlice> partitionTable;
+    private final RestTemplate restTemplate;
+    private final PresenceMonitorProperties props;
 
     @Autowired
     public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable,
-                            KafkaTopicProperties kafkaTopicProperties) {
+                            KafkaTopicProperties kafkaTopicProperties,
+                            RestTemplateBuilder restTemplateBuilder,
+                            PresenceMonitorProperties props) {
         this.partitionTable = partitionTable;
-
         this.topic = kafkaTopicProperties.getResources();
+        this.restTemplate = restTemplateBuilder.build();
+        this.props = props;
     }
 
     public String getTopic() {
@@ -51,40 +63,53 @@ public class ResourceListener implements ConsumerSeekAware {
 
     @KafkaListener(topics = "#{__listener.topic}")
     public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
-        // boolean keyFound = false;
-        // for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
-        //     PartitionSlice slice = e.getValue();
-        //     ResourceInfo rinfo = PresenceMonitorProcessor.convert(record.value().getResource());
-        //     String hash = PresenceMonitorProcessor.genExpectedId(rinfo);
-        //     if (PresenceMonitorProcessor.sliceContains(slice, hash)) {
-        //         log.trace("record {} used to update slice", record.key());
-        //         keyFound = true;
-        //         updateSlice(slice, hash, record.value(), rinfo);
-        //         break;
-        //     }
-        // }
-        // if (!keyFound) {
-        //     log.trace("record {} ignored", record.key());
-        // }
+        final HashMap<String, String> urlVariables = new HashMap<>();
+        urlVariables.put("tenantId", record.value().getTenantId());
+        urlVariables.put("resourceId", record.value().getResourceId());
+        ResponseEntity<Resource> resp = restTemplate.getForEntity(
+                props.getResourceManagerUrl() + "/api/tenant/{tenantId}/resources/{resourceId}",
+                Resource.class, urlVariables);
+        if (resp.getStatusCode() != HttpStatus.OK) {
+            log.error("Presence monitor failed to read resource: " + record, resp);
+            // Note if resource manager is down for a while, presence monitor will get out of sync
+            //  and will need to be restarted in order to refresh its' expected table.
+            return;
+        }
+        Resource resource = resp.getBody();
+        ResourceInfo rinfo = PresenceMonitorProcessor.convert(resource);
+        String hash = PresenceMonitorProcessor.genExpectedId(record.value().getTenantId(),
+                record.value().getResourceId());
+        boolean keyFound = false;
+        for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
+            PartitionSlice slice = e.getValue();
+            if (PresenceMonitorProcessor.sliceContains(slice, hash)) {
+                log.trace("record {} used to update slice", record.key());
+                keyFound = true;
+                updateSlice(slice, hash, resource, rinfo);
+                break;
+            }
+        }
+        if (!keyFound) {
+            log.trace("record {} ignored", record.key());
+        }
     }
 
     // synchronized to prevent slice from being updated simultaneously when a new slice is added
-    synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
-        // boolean enabled = resourceEvent.getResource().getPresenceMonitoringEnabled();
-        // if (!(resourceEvent.getOperation().equals(OperationType.DELETE)) && enabled) {
-        //     PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
-        //     PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
-        //     newEntry.setResourceInfo(rinfo);
-        //     if (oldEntry != null) {
-        //         newEntry.setActive(oldEntry.getActive());
-        //     } else {
-        //         newEntry.setActive(false);
-        //     }
-        //     slice.getExpectedTable().put(key, newEntry);
+    synchronized void updateSlice(PartitionSlice slice, String key, Resource resource, ResourceInfo rinfo) {
+        if (resource != null && resource.getPresenceMonitoringEnabled()) {
+            PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
+            PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
+            newEntry.setResourceInfo(rinfo);
+            if (oldEntry != null) {
+                newEntry.setActive(oldEntry.getActive());
+            } else {
+                newEntry.setActive(false);
+            }
+            slice.getExpectedTable().put(key, newEntry);
 
-        // } else {
-        //     slice.getExpectedTable().remove(key);
-        // }
+        } else {
+            slice.getExpectedTable().remove(key);
+        }
     }
 
     @Override

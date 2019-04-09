@@ -182,7 +182,8 @@ public class PresenceMonitorProcessorTest {
                 envoyResourceManagement, taskScheduler, metricExporter,
                 simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
-        String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo);
+        String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo.getTenantId(),
+                expectedResourceInfo.getResourceId());
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/active/" + expectedId),
                 ByteSequence.fromString(activeResourceInfoString)).join();
@@ -246,7 +247,8 @@ public class PresenceMonitorProcessorTest {
                 partitionSlice.getExpectedTable().size(), 0);
 
         // Now generate an active watch and wait for the sem
-        String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo);
+        String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo.getTenantId(),
+                activeResourceInfo.getResourceId());
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/active/" + activeId),
                 ByteSequence.fromString(activeResourceInfoString));

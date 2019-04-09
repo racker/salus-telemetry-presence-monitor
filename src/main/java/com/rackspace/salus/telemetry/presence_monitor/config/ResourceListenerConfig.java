@@ -21,6 +21,8 @@ import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.telemetry.presence_monitor.services.ResourceListener;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,7 +35,8 @@ public class ResourceListenerConfig {
     }
 
     @Bean
-    public ResourceListener resourceListener(KafkaTopicProperties kafkaTopicProperties) {
-        return new ResourceListener(getPartitionTable(), kafkaTopicProperties);
+    public ResourceListener resourceListener(KafkaTopicProperties kafkaTopicProperties,
+                                             RestTemplateBuilder restTemplateBuilder, PresenceMonitorProperties props) {
+        return new ResourceListener(getPartitionTable(), kafkaTopicProperties, restTemplateBuilder, props);
     }
 }
