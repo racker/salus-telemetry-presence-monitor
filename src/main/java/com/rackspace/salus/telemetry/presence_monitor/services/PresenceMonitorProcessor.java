@@ -150,9 +150,6 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     static ResourceInfo convert(Resource resource) {
-        if (resource == null) {
-            return null;
-        }
         ResourceInfo ri = new ResourceInfo();
         ri.setResourceId(resource.getResourceId());
         ri.setLabels(resource.getLabels());
