@@ -42,7 +42,6 @@ import io.micrometer.core.instrument.Tag;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -85,7 +84,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry, KeyHashing hashing,
+                             MeterRegistry meterRegistry,
                              PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
                              ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
         this.meterRegistry = meterRegistry;
@@ -150,6 +149,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     static ResourceInfo convert(Resource resource) {
+        if (resource == null) {
+            return null;
+        }
         ResourceInfo ri = new ResourceInfo();
         ri.setResourceId(resource.getResourceId());
         ri.setLabels(resource.getLabels());
