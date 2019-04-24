@@ -16,80 +16,59 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
-import com.rackspace.salus.telemetry.messaging.OperationType;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
-import com.rackspace.salus.telemetry.model.ResourceInfo;
+import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
-import org.springframework.kafka.test.utils.ContainerTestUtils;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@Import({KafkaAutoConfiguration.class})
-@EnableSalusKafkaMessaging
-@DirtiesContext
 @Slf4j
+@Import({PresenceMonitorProperties.class})
 @ActiveProfiles("test")
 public class ResourceListenerTest {
     private KeyHashing hashing = new KeyHashing();
 
-    @Configuration
-    public static class TestConfig {
-        @Bean
-        ResourceListener getRL() {
-            String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
-                    rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-
-            partitionTable = new ConcurrentHashMap<>();
-            PartitionSlice slice = new PartitionSlice();
-            slice.setRangeMin(rangeStart);
-            slice.setRangeMax(rangeEnd);
-            partitionTable.put(sliceKey, slice);
-            return new SliceUpdateListener(partitionTable);
-        }
-    }
-
     private static String sliceKey = "id1";
 
-    @Autowired
-    KafkaTopicProperties kafkaTopicProperties;
+    @MockBean
+    RestTemplateBuilder restTemplateBuilder;
+
+    @Mock
+    RestTemplate restTemplate;
+
+    @Mock
+    ResponseEntity<Resource> responseEntity;
 
     @Autowired
-    private KafkaTemplate template;
-
-    @Autowired
-    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
-
-    @ClassRule
-    public static EmbeddedKafkaRule embeddedKafka =
-            new EmbeddedKafkaRule(1, true, 1);
+    PresenceMonitorProperties props;
 
     private static ConcurrentHashMap<String, PartitionSlice>
             partitionTable;
@@ -101,63 +80,55 @@ public class ResourceListenerTest {
                     "\"tenantId\":\"123456\"}";
     private String updatedResourceString = resourceString.replaceAll("X86_64", "X86_32");
 
+    private String tenantId = "t1";
+    private String resourceId = "r1";
+
     private ResourceEvent resourceEvent = new ResourceEvent();
-    private ResourceEvent updatedResourceEvent = new ResourceEvent();
+
     private Resource resource, updatedResource;
     private ObjectMapper objectMapper = new ObjectMapper();
-    private static Semaphore listenerSem = new Semaphore(0);
 
     @Before
     public void setUp() throws Exception {
+        String rangeStart = "0000000000000000000000000000000000000000000000000000000000000000",
+               rangeEnd = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+        partitionTable = new ConcurrentHashMap<>();
+        PartitionSlice slice = new PartitionSlice();
+        slice.setRangeMin(rangeStart);
+        slice.setRangeMax(rangeEnd);
+        partitionTable.put(sliceKey, slice);
         resource = objectMapper.readValue(resourceString, Resource.class);
         updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
-        resourceEvent.setResource(resource).setOperation(OperationType.CREATE);
-        updatedResourceEvent.setResource(updatedResource).setOperation(OperationType.UPDATE);
-
-
-        // wait until the partitions are assigned
-        for (MessageListenerContainer messageListenerContainer : kafkaListenerEndpointRegistry
-                .getListenerContainers()) {
-            ContainerTestUtils.waitForAssignment(messageListenerContainer,
-                    embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
-        }
-
-
+        resourceEvent.setResourceId(resourceId).setTenantId(tenantId);
     }
 
     @Test
-    public void testListener() throws Exception {
-        String key = String.format("%s:%s", resourceEvent.getResource().getTenantId(),
-                resourceEvent.getResource().getResourceId());
+    public void testListener() {
+        String key = String.format("%s:%s", tenantId, resourceId);
         String hash = hashing.hash(key);
+        when(restTemplateBuilder.build()).thenReturn(restTemplate);
+        when(restTemplate.getForEntity(anyString(),any(), (Map)any())).thenReturn(responseEntity);
+        when(responseEntity.getStatusCode()).thenReturn(HttpStatus.OK);
+        when(responseEntity.getBody()).thenReturn(resource);
 
+
+        ResourceListener rl = new ResourceListener(partitionTable, new KafkaTopicProperties(), restTemplateBuilder, props);
+        ConsumerRecord<String, ResourceEvent> cr = new ConsumerRecord<>("http://dummy", 0, 0, key, resourceEvent);
         // send the message
         assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
-        template.send(kafkaTopicProperties.getResources(), key, resourceEvent);
-        listenerSem.acquire();
+        rl.resourceListener(cr);
         PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
 
-        template.send(kafkaTopicProperties.getResources(), key, updatedResourceEvent);
-        listenerSem.acquire();
+        when(responseEntity.getBody()).thenReturn(updatedResource);
+        rl.resourceListener(cr);
         entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
         assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
 
-        resourceEvent.setOperation(OperationType.DELETE);
-        template.send(kafkaTopicProperties.getResources(), key, resourceEvent);
-        listenerSem.acquire();
+        // Throwing not found exception should be interpreted as the resource should be deleted
+        when(restTemplate.getForEntity(anyString(),any(), (Map)any())).thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+        rl.resourceListener(cr);
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
     }
 
-    static class SliceUpdateListener extends ResourceListener {
-        SliceUpdateListener(ConcurrentHashMap<String, PartitionSlice> partitionTable) {
-            super(partitionTable, new KafkaTopicProperties());
-        }
-
-        protected synchronized void updateSlice(PartitionSlice slice, String key, ResourceEvent resourceEvent, ResourceInfo rinfo) {
-            super.updateSlice(slice, key, resourceEvent, rinfo);
-            listenerSem.release();
-        }
-
-    }
 }

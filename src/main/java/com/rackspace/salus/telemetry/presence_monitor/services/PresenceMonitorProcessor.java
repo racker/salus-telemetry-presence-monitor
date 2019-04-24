@@ -42,7 +42,6 @@ import io.micrometer.core.instrument.Tag;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -85,7 +84,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry, KeyHashing hashing,
+                             MeterRegistry meterRegistry,
                              PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
                              ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
         this.meterRegistry = meterRegistry;
@@ -112,9 +111,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return strings[strings.length - 1];
     }
 
-    static String genExpectedId(ResourceInfo resourceInfo) {
+    static String genExpectedId(String tenantId, String resourceId) {
         String resourceKey = String.format("%s:%s",
-                resourceInfo.getTenantId(), resourceInfo.getResourceId());
+                tenantId, resourceId);
         return hashing.hash(resourceKey);
     }
 
@@ -128,7 +127,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         synchronized (resourceListener) {
             List<Resource> resources = new ArrayList<>();
 
-            restTemplate.execute(props.getResourceManagerUrl(), HttpMethod.GET, request -> {
+            restTemplate.execute(props.getResourceManagerUrl() + "/api/envoys", HttpMethod.GET, request -> {
             }, response -> {
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
                 String line;
@@ -150,6 +149,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     static ResourceInfo convert(Resource resource) {
+        if (resource == null) {
+            return null;
+        }
         ResourceInfo ri = new ResourceInfo();
         ri.setResourceId(resource.getResourceId());
         ri.setLabels(resource.getLabels());
@@ -189,7 +191,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         resources.forEach(resource -> {
             // Create an entry for the resource
             ResourceInfo resourceInfo = convert(resource);
-            String expectedId = genExpectedId(resourceInfo);
+            String expectedId = genExpectedId(resourceInfo.getTenantId(), resourceInfo.getResourceId());
             if (sliceContains(newSlice, expectedId)) {
                 PartitionSlice.ExpectedEntry expectedEntry = new PartitionSlice.ExpectedEntry();
                 expectedEntry.setResourceInfo(resourceInfo);

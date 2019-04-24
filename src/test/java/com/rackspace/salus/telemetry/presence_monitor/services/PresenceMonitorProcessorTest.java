@@ -48,7 +48,6 @@ import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -180,9 +179,10 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
+                simpleMeterRegistry, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
-        String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo);
+        String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo.getTenantId(),
+                expectedResourceInfo.getResourceId());
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/active/" + expectedId),
                 ByteSequence.fromString(activeResourceInfoString)).join();
@@ -223,7 +223,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), hashing, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
+                new SimpleMeterRegistry(), presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
 
 
         // wrap active watch consumer to release a semaphore when done
@@ -246,7 +246,8 @@ public class PresenceMonitorProcessorTest {
                 partitionSlice.getExpectedTable().size(), 0);
 
         // Now generate an active watch and wait for the sem
-        String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo);
+        String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo.getTenantId(),
+                activeResourceInfo.getResourceId());
         client.getKVClient().put(
                 ByteSequence.fromString("/resources/active/" + activeId),
                 ByteSequence.fromString(activeResourceInfoString));

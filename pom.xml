@@ -85,6 +85,16 @@
             <groupId>com.rackspace.salus</groupId>
             <artifactId>salus-telemetry-model</artifactId>
             <version>0.1.0-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>spring-boot-starter-jdbc</artifactId>
+                    <groupId>org.springframework.boot</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spring-jdbc</artifactId>
+                    <groupId>org.springframework</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.rackspace.monplat</groupId>
