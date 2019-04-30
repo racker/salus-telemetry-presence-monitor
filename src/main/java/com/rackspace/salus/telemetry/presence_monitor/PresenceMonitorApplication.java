@@ -17,12 +17,21 @@
 package com.rackspace.salus.telemetry.presence_monitor;
 
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
+import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 @SpringBootApplication
 @EnableSalusKafkaMessaging
 public class PresenceMonitorApplication {
+
+	@Bean
+	public ConcurrentHashMap<String, PartitionSlice> partitionTable() {
+		return new ConcurrentHashMap<>();
+	}
 
 	public static void main(String[] args) {
 		SpringApplication.run(PresenceMonitorApplication.class, args);

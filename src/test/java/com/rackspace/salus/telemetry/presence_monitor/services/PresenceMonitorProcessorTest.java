@@ -28,61 +28,74 @@ import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
+import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
+import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
-import com.rackspace.salus.telemetry.presence_monitor.config.ResourceListenerConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.context.annotation.Primary;
+import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.web.client.ResponseExtractor;
-import org.springframework.web.client.RestTemplate;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest
+@EmbeddedKafka(partitions = 1, topics = {PresenceMonitorProcessorTest.TOPIC_METRICS})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @EnableSalusKafkaMessaging
 public class PresenceMonitorProcessorTest {
-    @Configuration
-    @Import({KeyHashing.class, MetricExporter.class, PresenceMonitorProperties.class, ResourceListenerConfig.class})
+
+    public static final String TOPIC_METRICS = "test.metrics.json";
+
+    // Declare our own unit test Spring config, which is merged with the main app config.
+    @TestConfiguration
     public static class TestConfig {
+
+        // Adjust our standard topic properties to point metrics at our test topic
         @Bean
-        MeterRegistry getMeterRegistry() {
-            return new SimpleMeterRegistry();
+        public KafkaTopicProperties kafkaTopicProperties() {
+            final KafkaTopicProperties properties = new KafkaTopicProperties();
+            properties.setMetrics(TOPIC_METRICS);
+            return properties;
+        }
+
+        @Bean
+        @Primary // Gives preference to this bean if other Client beans are configured
+        public Client client() {
+            final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
+                    .map(URI::toString)
+                    .collect(Collectors.toList());
+            return com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
         }
     }
 
-    @Rule
-    public final EtcdClusterResource etcd = new EtcdClusterResource("PresenceMonitorProcessorTest", 1);
+    @ClassRule
+    public static final EtcdClusterResource etcd = new EtcdClusterResource("PresenceMonitorProcessorTest", 1);
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -95,20 +108,15 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     SimpleMeterRegistry simpleMeterRegistry;
 
+    @Autowired
+    KeyHashing hashing;
+
     private ThreadPoolTaskScheduler taskScheduler;
 
     private EnvoyResourceManagement envoyResourceManagement;
 
-    private Client client;
-
     @Autowired
-    KeyHashing hashing;
-
-    @Mock
-    RestTemplate restTemplate;
-
-    @MockBean
-    RestTemplateBuilder restTemplateBuilder;
+    private Client client;
 
     private String expectedResourceString =
             "{\"resourceId\":\"os:LINUX\"," +
@@ -117,6 +125,8 @@ public class PresenceMonitorProcessorTest {
                     "\"tenantId\":\"123456\"}";
 
     private String activeResourceInfoString;
+
+    private Resource expectedResource;
 
     private ResourceInfo expectedResourceInfo;
 
@@ -128,15 +138,15 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     private PresenceMonitorProperties presenceMonitorProperties;
 
+    @Mock
+    ResourceApi resourceApi;
+
     @Autowired
     ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
     @Autowired
     @Qualifier("resourceListener")
     ResourceListener resourceListener;
-
-    @Mock
-    ClientHttpResponse response;
 
     @Before
     public void setUp() throws Exception {
@@ -145,18 +155,12 @@ public class PresenceMonitorProcessorTest {
         taskScheduler.setThreadNamePrefix("tasks-");
         taskScheduler.initialize();
 
-        final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
-                .map(URI::toString)
-                .collect(Collectors.toList());
-        client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
-
         envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-        Resource expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
+        expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
         expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResource);
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
-        when(restTemplateBuilder.build()).thenReturn(restTemplate);
     }
 
 
@@ -164,12 +168,7 @@ public class PresenceMonitorProcessorTest {
     public void testProcessorStart() throws Exception {
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
 
-        InputStream testStream = new ByteArrayInputStream((PresenceMonitorProcessor.SSEHdr + " " + expectedResourceString + "\n\n").getBytes());
-        when(response.getBody()).thenReturn(testStream);
-        doAnswer(invocation -> {
-            ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
-            return responseExtractor.extractData(response);
-        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
+        when(resourceApi.getExpectedEnvoys()).thenReturn(Collections.singletonList(expectedResource));
 
         Semaphore routerSem = new Semaphore(0);
         doAnswer((a) -> {
@@ -179,7 +178,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
+                simpleMeterRegistry, resourceListener, partitionTable, resourceApi);
 
         String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo.getTenantId(),
                 expectedResourceInfo.getResourceId());
@@ -214,17 +213,9 @@ public class PresenceMonitorProcessorTest {
         doNothing().when(metricRouter).route(any(), any());
 
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
-        InputStream testStream = new ByteArrayInputStream(("\n\n").getBytes());
-        when(response.getBody()).thenReturn(testStream);
-        doAnswer(invocation -> {
-            ResponseExtractor<InputStream> responseExtractor = invocation.getArgument(3);
-            return responseExtractor.extractData(response);
-        }).when(restTemplate).execute(any(), any(), any(), any(), (Object) any());
-
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), presenceMonitorProperties, restTemplateBuilder, resourceListener, partitionTable);
-
+                new SimpleMeterRegistry(), resourceListener, partitionTable, resourceApi);
 
         // wrap active watch consumer to release a semaphore when done
         Semaphore activeSem = new Semaphore(0);
@@ -234,7 +225,6 @@ public class PresenceMonitorProcessorTest {
             activeSem.release();
         };
         p.setActiveWatchResponseConsumer(newActiveConsumer);
-
 
         p.start("id1", "{" +
                 "\"start\":\"" + rangeStart + "\"," +
@@ -267,6 +257,5 @@ public class PresenceMonitorProcessorTest {
                 partitionSlice.getExpectedTable().get(activeId).getActive(), false);
         assertEquals(activeResourceInfo,
                 partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
-
     }
 }

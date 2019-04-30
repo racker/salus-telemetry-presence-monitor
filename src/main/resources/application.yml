@@ -26,11 +26,3 @@ spring:
   main:
     web-environment:
       false
-
----
-
-spring:
-  profiles: test
-presence-monitor:
-  exportPeriod:
-    1

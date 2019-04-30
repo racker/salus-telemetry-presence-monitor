@@ -16,17 +16,13 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 
-@ConfigurationProperties("presence-monitor")
+@ConfigurationProperties("services")
 @Component
 @Data
-public class PresenceMonitorProperties {
-    @DurationUnit(ChronoUnit.SECONDS)
-    Duration exportPeriod = Duration.ofSeconds(60);
+public class ServicesProperties {
+  String resourceManagementUrl;
 }

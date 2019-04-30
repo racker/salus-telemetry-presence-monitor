@@ -16,27 +16,32 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
-
-import com.rackspace.salus.common.messaging.KafkaTopicProperties;
-import com.rackspace.salus.telemetry.presence_monitor.services.ResourceListener;
-import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
-import java.util.concurrent.ConcurrentHashMap;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.resource_management.web.client.ResourceApi;
+import com.rackspace.salus.resource_management.web.client.ResourceApiClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Configuration
-public class ResourceListenerConfig {
-    @Bean
-    public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
-        return new ConcurrentHashMap<>();
-    }
+public class RestClientsConfig {
 
-    @Bean
-    public ResourceListener resourceListener(KafkaTopicProperties kafkaTopicProperties,
-                                             RestTemplateBuilder restTemplateBuilder, PresenceMonitorProperties props) {
-        return new ResourceListener(getPartitionTable(), kafkaTopicProperties, restTemplateBuilder, props);
-    }
+  private final ObjectMapper objectMapper;
+  private final ServicesProperties servicesProperties;
+
+  @Autowired
+  public RestClientsConfig(ObjectMapper objectMapper, ServicesProperties servicesProperties) {
+    this.objectMapper = objectMapper;
+    this.servicesProperties = servicesProperties;
+  }
+
+  @Bean
+  public ResourceApi resourceApi(RestTemplateBuilder restTemplateBuilder) {
+    return new ResourceApiClient(objectMapper,
+            restTemplateBuilder
+            .rootUri(servicesProperties.getResourceManagementUrl())
+            .build()
+    );
+  }
 }

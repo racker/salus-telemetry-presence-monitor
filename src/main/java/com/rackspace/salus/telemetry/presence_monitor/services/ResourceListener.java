@@ -17,45 +17,37 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
+import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
-import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.ConsumerSeekAware;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.stereotype.Component;
 
 
 @Slf4j
+@Component
 public class ResourceListener implements ConsumerSeekAware {
 
     private final String topic;
     private ConcurrentHashMap<String, PartitionSlice> partitionTable;
-    private final RestTemplate restTemplate;
-    private final PresenceMonitorProperties props;
+    private final ResourceApi resourceApi;
 
     @Autowired
     public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable,
-                            KafkaTopicProperties kafkaTopicProperties,
-                            RestTemplateBuilder restTemplateBuilder,
-                            PresenceMonitorProperties props) {
+                            KafkaTopicProperties kafkaTopicProperties, ResourceApi resourceApi) {
         this.partitionTable = partitionTable;
         this.topic = kafkaTopicProperties.getResources();
-        this.restTemplate = restTemplateBuilder.build();
-        this.props = props;
+        this.resourceApi = resourceApi;
     }
 
     public String getTopic() {
@@ -63,36 +55,12 @@ public class ResourceListener implements ConsumerSeekAware {
     }
 
     @KafkaListener(topics = "#{__listener.topic}")
-    public void resourceListener(ConsumerRecord<String, ResourceEvent> record) {
-        Resource resource = null;
-        ResourceInfo rinfo = null;
-        final HashMap<String, String> urlVariables = new HashMap<>();
-        urlVariables.put("tenantId", record.value().getTenantId());
-        urlVariables.put("resourceId", record.value().getResourceId());
-        try {
-            ResponseEntity<Resource> resp = restTemplate.getForEntity(
-                    props.getResourceManagerUrl() + "/api/tenant/{tenantId}/resources/{resourceId}",
-                    Resource.class, urlVariables);
-            if (resp.getStatusCode() != HttpStatus.OK) {
-                log.error("Presence monitor failed to read resource: " + record, resp);
-                // Note if resource manager is down for a while, presence monitor will get out of sync
-                //  and will need to be restarted in order to refresh its' expected table.
-                return;
-            }
-            resource = resp.getBody();
-            rinfo = PresenceMonitorProcessor.convert(resource);
-        } catch(Exception e) {
-            // exit on any error except NOT_FOUND
-            if (!(e instanceof HttpClientErrorException) ||
-                    ((HttpClientErrorException) e).getStatusCode() != HttpStatus.NOT_FOUND) {
-                log.error("Presence monitor failed to read resource: " + record, e);
-                // Note if resource manager is down for a while, presence monitor will get out of sync
-                //  and will need to be restarted in order to refresh its' expected table.
-                return;
-            }
-        }
-        String hash = PresenceMonitorProcessor.genExpectedId(record.value().getTenantId(),
-                record.value().getResourceId());
+    public void handleResourceEvent(ConsumerRecord<String, ResourceEvent> record) {
+        ResourceEvent event = record.value();
+        Resource resource = resourceApi.getByResourceId(event.getTenantId(), event.getResourceId());
+        ResourceInfo rinfo = PresenceMonitorProcessor.convert(resource);
+
+        String hash = PresenceMonitorProcessor.genExpectedId(event.getTenantId(), event.getResourceId());
         boolean keyFound = false;
         for (Map.Entry<String, PartitionSlice> e : partitionTable.entrySet()) {
             PartitionSlice slice = e.getValue();
