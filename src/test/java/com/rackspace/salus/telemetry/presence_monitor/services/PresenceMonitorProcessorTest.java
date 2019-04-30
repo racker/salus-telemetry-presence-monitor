@@ -85,7 +85,7 @@ public class PresenceMonitorProcessorTest {
         }
 
         @Bean
-        @Primary // This overrides any existing Client bean with this bean.
+        @Primary // Gives preference to this bean if other Client beans are configured
         public Client client() {
             final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
                     .map(URI::toString)

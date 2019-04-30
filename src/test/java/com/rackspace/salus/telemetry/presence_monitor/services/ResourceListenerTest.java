@@ -23,15 +23,12 @@ import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit4.SpringRunner;
-
+import org.mockito.junit.MockitoJUnitRunner;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.Assert.assertEquals;
@@ -39,9 +36,7 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-@RunWith(SpringRunner.class)
-@Slf4j
-@ActiveProfiles("test")
+@RunWith(MockitoJUnitRunner.class)
 public class ResourceListenerTest {
     private KeyHashing hashing = new KeyHashing();
 
@@ -108,5 +103,4 @@ public class ResourceListenerTest {
         rl.handleResourceEvent(cr);
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
     }
-
 }

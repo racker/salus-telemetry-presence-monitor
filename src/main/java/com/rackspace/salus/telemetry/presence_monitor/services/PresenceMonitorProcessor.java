@@ -120,12 +120,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     private List<Resource> getResources() {
-        List<Resource> resources;
         // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
-            resources = resourceApi.getExpectedEnvoys();
+            return resourceApi.getExpectedEnvoys();
         }
-        return resources;
     }
 
     static ResourceInfo convert(Resource resource) {
@@ -285,6 +283,4 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
         return partitionTable;
     }
-
-
 }

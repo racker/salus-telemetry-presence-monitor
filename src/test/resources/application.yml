@@ -5,3 +5,6 @@ spring:
     bootstrap-servers: ${spring.embedded.kafka.brokers}
     consumer:
       group-id: presence-monitor-${random.value}
+presence-monitor:
+  exportPeriod:
+    1
