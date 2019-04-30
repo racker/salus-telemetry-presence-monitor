@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.common.workpart.WorkProcessor;
+import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.model.Resource;
@@ -43,10 +44,10 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -74,19 +75,16 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter updatedWork;
     private final Counter stoppedWork;
     private static KeyHashing hashing = new KeyHashing();
-    private final PresenceMonitorProperties props;
-    private final RestTemplate restTemplate;
+    private final ResourceApi resourceApi;
     private final ResourceListener resourceListener;
-
-    static final String SSEHdr = "data:";
 
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
                              EnvoyResourceManagement envoyResourceManagement,
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
-                             MeterRegistry meterRegistry,
-                             PresenceMonitorProperties props, RestTemplateBuilder restTemplateBuilder,
-                             ResourceListener resourceListener, ConcurrentHashMap<String, PartitionSlice> partitionTable) {
+                             MeterRegistry meterRegistry, ResourceListener resourceListener,
+                             ConcurrentHashMap<String, PartitionSlice> partitionTable,
+                             ResourceApi resourceApi) {
         this.meterRegistry = meterRegistry;
         this.resourceListener = resourceListener;
         this.partitionTable = partitionTable;
@@ -95,9 +93,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.envoyResourceManagement = envoyResourceManagement;
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
+        this.resourceApi = resourceApi;
         this.metricExporter.setPartitionTable(partitionTable);
-        this.props = props;
-        this.restTemplate = restTemplateBuilder.build();
 
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
@@ -123,29 +120,12 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     private List<Resource> getResources() {
+        List<Resource> resources;
         // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
-            List<Resource> resources = new ArrayList<>();
-
-            restTemplate.execute(props.getResourceManagerUrl() + "/api/envoys", HttpMethod.GET, request -> {
-            }, response -> {
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.getBody()));
-                String line;
-                while ((line = bufferedReader.readLine()) != null) {
-                    if (line.length() > SSEHdr.length())
-                        try {
-                            Resource resource;
-                            // remove the "data:" hdr
-                            resource = objectMapper.readValue(line.substring(SSEHdr.length()), Resource.class);
-                            resources.add(resource);
-                        } catch (IOException e) {
-                            log.warn("Failed to parse Resource", e);
-                        }
-                }
-                return response;
-            });
-            return resources;
+            resources = resourceApi.getExpectedEnvoys();
         }
+        return resources;
     }
 
     static ResourceInfo convert(Resource resource) {
@@ -301,4 +281,10 @@ public class PresenceMonitorProcessor implements WorkProcessor {
             slice.getActiveWatch().stop();
         }
     }
+
+    public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
+        return partitionTable;
+    }
+
+
 }
