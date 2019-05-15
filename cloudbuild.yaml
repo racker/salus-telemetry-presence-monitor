@@ -27,9 +27,9 @@ steps:
     - name: user.home
       path: /root
 
-  - id: DEPLOY
+  - id: VERIFY
     name: 'gcr.io/cloud-builders/mvn'
-    args: ['deploy', '-s', '.mvn/settings.xml']
+    args: ['-B', 'verify', '-s', '.mvn/settings.xml']
     volumes:
     - name: user.home
       path: /root
@@ -37,7 +37,7 @@ steps:
   # Saves the files to the GCS cache.
   - id: PUSH_UP_CACHE
     waitFor:
-    - DEPLOY
+    - VERIFY
     name: gcr.io/cloud-builders/gsutil
     dir: /root
     entrypoint: bash
