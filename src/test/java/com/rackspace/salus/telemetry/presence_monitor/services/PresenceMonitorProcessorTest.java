@@ -31,9 +31,9 @@ import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
+import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
-import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
@@ -126,7 +126,7 @@ public class PresenceMonitorProcessorTest {
 
     private String activeResourceInfoString;
 
-    private Resource expectedResource;
+    private ResourceDTO expectedResource;
 
     private ResourceInfo expectedResourceInfo;
 
@@ -156,7 +156,7 @@ public class PresenceMonitorProcessorTest {
         taskScheduler.initialize();
 
         envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-        expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
+        expectedResource = objectMapper.readValue(expectedResourceString, ResourceDTO.class);
         expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResource);
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 

@@ -18,8 +18,8 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
+import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
-import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 
@@ -57,7 +57,7 @@ public class ResourceListener implements ConsumerSeekAware {
     @KafkaListener(topics = "#{__listener.topic}")
     public void handleResourceEvent(ConsumerRecord<String, ResourceEvent> record) {
         ResourceEvent event = record.value();
-        Resource resource = resourceApi.getByResourceId(event.getTenantId(), event.getResourceId());
+        ResourceDTO resource = resourceApi.getByResourceId(event.getTenantId(), event.getResourceId());
         ResourceInfo rinfo = PresenceMonitorProcessor.convert(resource);
 
         String hash = PresenceMonitorProcessor.genExpectedId(event.getTenantId(), event.getResourceId());
@@ -77,7 +77,7 @@ public class ResourceListener implements ConsumerSeekAware {
     }
 
     // synchronized to prevent slice from being updated simultaneously when a new slice is added
-    synchronized void updateSlice(PartitionSlice slice, String key, Resource resource, ResourceInfo rinfo) {
+    synchronized void updateSlice(PartitionSlice slice, String key, ResourceDTO resource, ResourceInfo rinfo) {
         if (resource != null && resource.getPresenceMonitoringEnabled()) {
             PartitionSlice.ExpectedEntry newEntry = new PartitionSlice.ExpectedEntry();
             PartitionSlice.ExpectedEntry oldEntry = slice.getExpectedTable().get(key);
