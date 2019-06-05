@@ -20,8 +20,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
+import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
-import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
@@ -60,7 +60,7 @@ public class ResourceListenerTest {
 
     private ResourceEvent resourceEvent = new ResourceEvent();
 
-    private Resource resource, updatedResource;
+    private ResourceDTO resource, updatedResource;
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @Before
@@ -72,8 +72,8 @@ public class ResourceListenerTest {
         slice.setRangeMin(rangeStart);
         slice.setRangeMax(rangeEnd);
         partitionTable.put(sliceKey, slice);
-        resource = objectMapper.readValue(resourceString, Resource.class);
-        updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
+        resource = objectMapper.readValue(resourceString, ResourceDTO.class);
+        updatedResource = objectMapper.readValue(updatedResourceString, ResourceDTO.class);
         resourceEvent.setResourceId(resourceId).setTenantId(tenantId);
     }
 

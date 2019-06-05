@@ -29,11 +29,10 @@ import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.common.workpart.Bits;
 import com.rackspace.salus.common.workpart.WorkProcessor;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
+import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.Resource;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
-import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
@@ -43,16 +42,10 @@ import io.micrometer.core.instrument.Tag;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -119,14 +112,14 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                 (expectedId.compareTo(slice.getRangeMax()) <= 0));
     }
 
-    private List<Resource> getResources() {
+    private List<ResourceDTO> getResources() {
         // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
             return resourceApi.getExpectedEnvoys();
         }
     }
 
-    static ResourceInfo convert(Resource resource) {
+    static ResourceInfo convert(ResourceDTO resource) {
         if (resource == null) {
             return null;
         }
@@ -163,7 +156,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         newSlice.setRangeMin(workContent.get("start").asText());
 
         // Get the expected entries
-        List<Resource> resources = getResources();
+        List<ResourceDTO> resources = getResources();
 
         log.debug("Found {} expected envoys", resources.size());
         resources.forEach(resource -> {
