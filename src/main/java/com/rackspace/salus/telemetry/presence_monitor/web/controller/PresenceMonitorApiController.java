@@ -23,6 +23,7 @@ import com.rackspace.salus.telemetry.etcd.types.WorkAllocationRealm;
 import com.rackspace.salus.telemetry.model.View;
 import com.rackspace.salus.telemetry.presence_monitor.web.model.SuccessResult;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -45,14 +46,14 @@ public class PresenceMonitorApiController {
 
   @GetMapping("/admin/presence-monitor/partitions")
   @JsonView(View.Admin.class)
-  public List<KeyRange> presenceMonitorPartitions() {
-    return workAllocationPartitionService.getPartitions(WorkAllocationRealm.PRESENCE_MONITOR).join();
+  public CompletableFuture<List<KeyRange>> presenceMonitorPartitions() {
+    return workAllocationPartitionService.getPartitions(WorkAllocationRealm.PRESENCE_MONITOR);
   }
 
   @PutMapping("/admin/presence-monitor/partitions")
   @JsonView(View.Admin.class)
-  public SuccessResult changePresenceMonitorPartitions(@RequestBody int count) throws IllegalArgumentException {
+  public CompletableFuture<SuccessResult> changePresenceMonitorPartitions(@RequestBody int count) throws IllegalArgumentException {
     return workAllocationPartitionService.changePartitions(WorkAllocationRealm.PRESENCE_MONITOR, count)
-        .thenApply(result -> new SuccessResult().setSuccess(result)).join();
+        .thenApply(result -> new SuccessResult().setSuccess(result));
   }
 }
