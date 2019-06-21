@@ -5,6 +5,9 @@ spring:
     bootstrap-servers: ${spring.embedded.kafka.brokers}
     consumer:
       group-id: presence-monitor-${random.value}
+  jackson:
+    mapper:
+      default-view-inclusion: true
 presence-monitor:
   exportPeriod:
     1

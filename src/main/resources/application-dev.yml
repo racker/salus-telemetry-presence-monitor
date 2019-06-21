@@ -11,3 +11,5 @@ management:
           - health
           - info
           - metrics
+services:
+  resource-management-url: http://localhost:8085

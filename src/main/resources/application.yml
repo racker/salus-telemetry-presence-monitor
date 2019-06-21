@@ -1,13 +1,9 @@
 presence-monitor:
-  exportPeriod:
-    5
-  resourceManagerUrl:
-    http://localhost:8085
+  exportPeriod: 5
 etcd:
   url: http://localhost:2479
 worker:
-  prefix:
-    /workAllocations/PRESENCE_MONITOR
+  prefix: /workAllocations/PRESENCE_MONITOR
 spring:
   kafka:
     producer:
@@ -23,6 +19,6 @@ spring:
             trusted:
               packages:
                 com.rackspace.salus.telemetry.messaging
-  main:
-    web-environment:
-      false
+  jackson:
+    mapper:
+      default-view-inclusion: true
