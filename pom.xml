@@ -16,157 +16,163 @@
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
+  <groupId>com.rackspace.salus</groupId>
+  <artifactId>salus-telemetry-presence-monitor</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>salus-telemetry-presence-monitor</name>
+  <description>Generate presence metrics for envoys</description>
+
+  <parent>
     <groupId>com.rackspace.salus</groupId>
-    <artifactId>salus-telemetry-presence-monitor</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <artifactId>salus-app-base</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../salus-app-base</relativePath>
+  </parent>
 
-    <name>salus-telemetry-presence-monitor</name>
-    <description>Generate presence metrics for envoys</description>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <java.version>1.8</java.version>
+  </properties>
 
-    <parent>
-        <groupId>com.rackspace.salus</groupId>
-        <artifactId>salus-app-base</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../salus-app-base</relativePath>
-    </parent>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.retry</groupId>
+      <artifactId>spring-retry</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
-    </properties>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.salus</groupId>
+      <artifactId>salus-common</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+      <exclusions>
+        <exclusion>
+          <!-- this app is not intended for external exposure, so excluding default security behaviors -->
+          <artifactId>spring-boot-starter-security</artifactId>
+          <groupId>org.springframework.boot</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.salus</groupId>
+      <artifactId>salus-telemetry-model</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+      <exclusions>
+        <exclusion>
+          <artifactId>spring-boot-starter-jdbc</artifactId>
+          <groupId>org.springframework.boot</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>spring-jdbc</artifactId>
+          <groupId>org.springframework</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.salus</groupId>
+      <artifactId>salus-telemetry-resource-management</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
+      <classifier>client</classifier>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.monplat</groupId>
+      <artifactId>umb-protocol</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+      <exclusions>
+        <exclusion>
+          <artifactId>servlet-api</artifactId>
+          <groupId>org.mortbay.jetty</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.salus</groupId>
+      <artifactId>salus-telemetry-etcd-adapter</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.mxsm</groupId>
+      <artifactId>jetcd-launcher</artifactId>
+      <version>0.3.6</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.rackspace.salus</groupId>
+      <artifactId>salus-test</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.retry</groupId>
-            <artifactId>spring-retry</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.rackspace.salus</groupId>
-            <artifactId>salus-common</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
-            <exclusions>
-                <exclusion>
-                    <!-- this app is not intended for external exposure, so excluding default security behaviors -->
-                    <artifactId>spring-boot-starter-security</artifactId>
-                    <groupId>org.springframework.boot</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.rackspace.salus</groupId>
-            <artifactId>salus-telemetry-model</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>spring-boot-starter-jdbc</artifactId>
-                    <groupId>org.springframework.boot</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>spring-jdbc</artifactId>
-                    <groupId>org.springframework</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.rackspace.salus</groupId>
-            <artifactId>salus-telemetry-resource-management</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <classifier>client</classifier>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-          <groupId>com.rackspace.monplat</groupId>
-          <artifactId>umb-protocol</artifactId>
-          <version>0.1.0-SNAPSHOT</version>
-          <exclusions>
-            <exclusion>
-              <artifactId>servlet-api</artifactId>
-              <groupId>org.mortbay.jetty</groupId>
-            </exclusion>
-          </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.rackspace.salus</groupId>
-            <artifactId>salus-telemetry-etcd-adapter</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.mxsm</groupId>
-            <artifactId>jetcd-launcher</artifactId>
-            <version>0.3.6</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <configuration>
+          <from>
+            <!--
+            Unable to use openjdk alpine base due to
+            java.lang.UnsatisfiedLinkError: /tmp/libnetty_tcnative_linux_x86_646515749084901402865.so: Error loading shared library libcrypt.so.1: No such file or directory
+            -->
+            <!-- non-alpine openjdk base has even more vulnerabilities than distroless one -->
+            <!-- SHA can be obtained from https://console.cloud.google.com/gcr/images/distroless/GLOBAL/java?gcrImageListsize=50 -->
+            <image>gcr.io/distroless/java@sha256:b430543bea1d8326e767058bdab3a2482ea45f59d7af5c5c61334cd29ede88a1</image>
+          </from>
+        </configuration>
+      </plugin>
+    </plugins>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>com.google.cloud.tools</groupId>
-                <artifactId>jib-maven-plugin</artifactId>
-                <configuration>
-                    <from>
-                        <!--
-                        Unable to use openjdk alpine base due to
-                        java.lang.UnsatisfiedLinkError: /tmp/libnetty_tcnative_linux_x86_646515749084901402865.so: Error loading shared library libcrypt.so.1: No such file or directory
-                        -->
-                        <!-- non-alpine openjdk base has even more vulnerabilities than distroless one -->
-                        <!-- SHA can be obtained from https://console.cloud.google.com/gcr/images/distroless/GLOBAL/java?gcrImageListsize=50 -->
-                        <image>gcr.io/distroless/java@sha256:b430543bea1d8326e767058bdab3a2482ea45f59d7af5c5c61334cd29ede88a1</image>
-                    </from>
-                </configuration>
-            </plugin>
-        </plugins>
-
-    </build>
+  </build>
 
   <distributionManagement>
     <snapshotRepository>
