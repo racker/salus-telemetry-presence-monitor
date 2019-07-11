@@ -17,13 +17,13 @@
 package com.rackspace.salus.telemetry.presence_monitor;
 
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
+import com.rackspace.salus.common.util.DumpConfigProperties;
 import com.rackspace.salus.telemetry.etcd.EnableEtcd;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-
-import java.util.concurrent.ConcurrentHashMap;
 
 @SpringBootApplication
 @EnableSalusKafkaMessaging
@@ -36,6 +36,8 @@ public class PresenceMonitorApplication {
 	}
 
 	public static void main(String[] args) {
+		DumpConfigProperties.process(args);
+
 		SpringApplication.run(PresenceMonitorApplication.class, args);
 	}
 }
