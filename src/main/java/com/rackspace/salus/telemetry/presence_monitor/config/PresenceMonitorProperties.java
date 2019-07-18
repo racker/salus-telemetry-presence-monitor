@@ -23,7 +23,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 
-@ConfigurationProperties("presence-monitor")
+@ConfigurationProperties("salus.presence-monitor")
 @Component
 @Data
 public class PresenceMonitorProperties {

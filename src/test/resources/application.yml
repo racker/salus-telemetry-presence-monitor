@@ -8,6 +8,6 @@ spring:
   jackson:
     mapper:
       default-view-inclusion: true
-presence-monitor:
+salus.presence-monitor:
   exportPeriod:
     1

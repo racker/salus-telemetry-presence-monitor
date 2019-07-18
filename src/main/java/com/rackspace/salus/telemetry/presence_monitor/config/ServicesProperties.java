@@ -20,7 +20,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-@ConfigurationProperties("services")
+@ConfigurationProperties("salus.services")
 @Component
 @Data
 public class ServicesProperties {

@@ -11,5 +11,5 @@ management:
           - health
           - info
           - metrics
-services:
+salus.services:
   resource-management-url: http://localhost:8085

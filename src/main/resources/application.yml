@@ -1,9 +1,10 @@
-presence-monitor:
-  exportPeriod: 5
-etcd:
-  url: http://localhost:2479
-worker:
-  prefix: /workAllocations/PRESENCE_MONITOR
+salus:
+  presence-monitor:
+    exportPeriod: 5
+  etcd:
+    url: http://localhost:2479
+  worker:
+    prefix: /workAllocations/PRESENCE_MONITOR
 spring:
   kafka:
     producer:
