@@ -157,17 +157,6 @@
       <plugin>
         <groupId>com.google.cloud.tools</groupId>
         <artifactId>jib-maven-plugin</artifactId>
-        <configuration>
-          <from>
-            <!--
-            Unable to use openjdk alpine base due to
-            java.lang.UnsatisfiedLinkError: /tmp/libnetty_tcnative_linux_x86_646515749084901402865.so: Error loading shared library libcrypt.so.1: No such file or directory
-            -->
-            <!-- non-alpine openjdk base has even more vulnerabilities than distroless one -->
-            <!-- SHA can be obtained from https://console.cloud.google.com/gcr/images/distroless/GLOBAL/java?gcrImageListsize=50 -->
-            <image>gcr.io/distroless/java@sha256:b430543bea1d8326e767058bdab3a2482ea45f59d7af5c5c61334cd29ede88a1</image>
-          </from>
-        </configuration>
       </plugin>
     </plugins>
 
