@@ -21,17 +21,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.coreos.jetcd.Client;
-import com.coreos.jetcd.data.ByteSequence;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.net.URI;
 import java.time.Instant;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
 import org.junit.Rule;
@@ -77,10 +74,9 @@ public class MetricRouterTest {
     private PartitionSlice.ExpectedEntry expectedEntry;
     @Before
     public void setUp() throws Exception {
-      final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
-              .map(URI::toString)
-              .collect(Collectors.toList());
-      client = com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
+      client = io.etcd.jetcd.Client.builder().endpoints(
+          etcd.cluster().getClientEndpoints()
+      ).build();
 
       when(timestampProvider.getCurrentInstant())
           .thenReturn(Instant.EPOCH);
@@ -98,8 +94,8 @@ public class MetricRouterTest {
         String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},  " +
                 "\"identifierName\":\"os\"}";
         client.getKVClient().put(
-                ByteSequence.fromString("/tenants/123456/envoysById/abcde"),
-                ByteSequence.fromString(envoyString)).join();
+                EtcdUtils.fromString("/tenants/123456/envoysById/abcde"),
+                EtcdUtils.fromString(envoyString)).join();
 
         metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
 

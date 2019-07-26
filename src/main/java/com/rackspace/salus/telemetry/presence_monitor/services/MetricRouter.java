@@ -18,7 +18,6 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import com.coreos.jetcd.Client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.monplat.protocol.AccountType;
 import com.rackspace.monplat.protocol.ExternalMetric;
@@ -26,6 +25,7 @@ import com.rackspace.monplat.protocol.MonitoringSystem;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.ByteArrayOutputStream;

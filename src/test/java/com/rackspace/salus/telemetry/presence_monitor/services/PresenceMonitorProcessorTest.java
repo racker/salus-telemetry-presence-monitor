@@ -23,29 +23,26 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.coreos.jetcd.Client;
-import com.coreos.jetcd.data.ByteSequence;
-import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
+import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
+import io.etcd.jetcd.watch.WatchResponse;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.net.URI;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -87,10 +84,9 @@ public class PresenceMonitorProcessorTest {
         @Bean
         @Primary // Gives preference to this bean if other Client beans are configured
         public Client client() {
-            final List<String> endpoints = etcd.cluster().getClientEndpoints().stream()
-                    .map(URI::toString)
-                    .collect(Collectors.toList());
-            return com.coreos.jetcd.Client.builder().endpoints(endpoints).build();
+            return io.etcd.jetcd.Client.builder().endpoints(
+                etcd.cluster().getClientEndpoints()
+            ).build();
         }
     }
 
@@ -183,8 +179,8 @@ public class PresenceMonitorProcessorTest {
         String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo.getTenantId(),
                 expectedResourceInfo.getResourceId());
         client.getKVClient().put(
-                ByteSequence.fromString("/resources/active/" + expectedId),
-                ByteSequence.fromString(activeResourceInfoString)).join();
+                EtcdUtils.fromString("/resources/active/" + expectedId),
+                EtcdUtils.fromString(activeResourceInfoString)).join();
 
         p.start("id1", "{" +
                 "\"start\":\"" + rangeStart + "\"," +
@@ -239,8 +235,8 @@ public class PresenceMonitorProcessorTest {
         String activeId = PresenceMonitorProcessor.genExpectedId(activeResourceInfo.getTenantId(),
                 activeResourceInfo.getResourceId());
         client.getKVClient().put(
-                ByteSequence.fromString("/resources/active/" + activeId),
-                ByteSequence.fromString(activeResourceInfoString));
+                EtcdUtils.fromString("/resources/active/" + activeId),
+                EtcdUtils.fromString(activeResourceInfoString));
         activeSem.acquire();
 
         assertEquals("Entry should be active",
@@ -250,7 +246,7 @@ public class PresenceMonitorProcessorTest {
         verify(metricRouter).route(partitionSlice.getExpectedTable().get(activeId), KafkaMessageType.EVENT);
 
         // Now delete active entry and see it go inactive
-        client.getKVClient().delete(ByteSequence.fromString("/resources/active/" + activeId));
+        client.getKVClient().delete(EtcdUtils.fromString("/resources/active/" + activeId));
         activeSem.acquire();
 
         assertEquals("Entry should be inactive",

@@ -19,10 +19,6 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
-import com.coreos.jetcd.Client;
-import com.coreos.jetcd.data.KeyValue;
-import com.coreos.jetcd.kv.GetResponse;
-import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.util.KeyHashing;
@@ -32,24 +28,28 @@ import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
-import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
+import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.KeyValue;
+import io.etcd.jetcd.kv.GetResponse;
+import io.etcd.jetcd.watch.WatchResponse;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 
 @Component
 @Slf4j
@@ -97,7 +97,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     }
 
     private String getExpectedId(KeyValue kv) {
-        String[] strings = kv.getKey().toStringUtf8().split("/");
+        String[] strings = kv.getKey().toString(StandardCharsets.UTF_8).split("/");
         return strings[strings.length - 1];
     }
 
@@ -197,7 +197,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         });
 
         newSlice.setActiveWatch(new PartitionWatcher("active-" + id,
-                taskScheduler, Keys.FMT_RESOURCES_ACTIVE,
+                Keys.FMT_RESOURCES_ACTIVE,
                 activeResponse.getHeader().getRevision(),
                 newSlice, activeWatchResponseConsumer,
                 envoyResourceManagement));
