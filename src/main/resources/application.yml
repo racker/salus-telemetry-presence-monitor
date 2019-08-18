@@ -23,3 +23,10 @@ spring:
   jackson:
     mapper:
       default-view-inclusion: true
+management:
+  metrics:
+    export:
+      influx:
+        uri: ${salus.metrics.influx.uri}
+        db: salus
+      

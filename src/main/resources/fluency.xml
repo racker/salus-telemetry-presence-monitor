@@ -1,0 +1,32 @@
+<included>
+  <springProperty scope="context" name="SALUS_FLUENTD_HOST" source="salus.fluentd.host"
+    defaultValue="localhost"/>
+  <springProperty scope="context" name="SALUS_FLUENTD_PORT" source="salus.fluentd.port"
+    defaultValue="24224"/>
+
+  <appender name="FLUENCY_SYNC" class="ch.qos.logback.more.appenders.FluencyLogbackAppender">
+    <tag>logback</tag>
+
+    <!-- Host name/address and port number which Flentd placed -->
+    <remoteHost>${SALUS_FLUENTD_HOST}</remoteHost>
+    <port>${SALUS_FLUENTD_PORT}</port>
+
+    <encoder>
+      <pattern><![CDATA[%date{HH:mm:ss.SSS} [%thread] %-5level %logger{15}#%line %msg]]></pattern>
+    </encoder>
+  </appender>
+
+  <appender name="FLUENCY" class="ch.qos.logback.classic.AsyncAppender">
+    <!-- Max queue size of logs which is waiting to be sent (When it reach to the max size, the log will be disappeared). -->
+    <queueSize>999</queueSize>
+    <!-- Never block when the queue becomes full. -->
+    <neverBlock>true</neverBlock>
+    <!-- The default maximum queue flush time allowed during appender stop.
+         If the worker takes longer than this time it will exit, discarding any remaining items in the queue.
+         10000 millis
+     -->
+    <maxFlushTime>10000</maxFlushTime>
+    <appender-ref ref="FLUENCY_SYNC" />
+  </appender>
+
+</included>
