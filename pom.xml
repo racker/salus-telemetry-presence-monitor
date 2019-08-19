@@ -125,7 +125,6 @@
     <dependency>
       <groupId>com.sndyuk</groupId>
       <artifactId>logback-more-appenders</artifactId>
-      <version>1.5.6</version>
     </dependency>
     <dependency>
       <groupId>org.komamitsu</groupId>
