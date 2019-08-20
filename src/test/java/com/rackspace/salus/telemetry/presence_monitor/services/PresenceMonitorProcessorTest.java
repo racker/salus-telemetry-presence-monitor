@@ -54,6 +54,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -65,6 +66,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 @EmbeddedKafka(partitions = 1, topics = {PresenceMonitorProcessorTest.TOPIC_METRICS})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @EnableSalusKafkaMessaging
+@Import({SimpleMeterRegistry.class})
 public class PresenceMonitorProcessorTest {
 
     public static final String TOPIC_METRICS = "test.metrics.json";
