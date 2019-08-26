@@ -173,7 +173,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         });
 
         // Get the active  entries
-        GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCES_ACTIVE, newSlice.getRangeMin(),
+        GetResponse activeResponse = envoyResourceManagement.getResourcesInRange(Keys.FMT_RESOURCE_ACTIVE_BY_HASH, newSlice.getRangeMin(),
                 newSlice.getRangeMax()).join();
         activeResponse.getKvs().forEach(activeKv -> {
             // Update entry for the kv
@@ -195,7 +195,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         });
 
         newSlice.setActiveWatch(new PartitionWatcher("active-" + id,
-                Keys.FMT_RESOURCES_ACTIVE,
+                Keys.FMT_RESOURCE_ACTIVE_BY_HASH,
                 activeResponse.getHeader().getRevision(),
                 newSlice, activeWatchResponseConsumer,
                 envoyResourceManagement));
