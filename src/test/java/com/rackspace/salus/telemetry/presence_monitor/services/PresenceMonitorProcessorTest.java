@@ -100,7 +100,7 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     MetricExporter metricExporter;
 
-    @Mock
+    @MockBean
     private MetricRouter metricRouter;
 
     @Autowired

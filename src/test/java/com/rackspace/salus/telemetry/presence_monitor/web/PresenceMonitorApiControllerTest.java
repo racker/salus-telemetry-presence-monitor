@@ -17,8 +17,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.web;
 
 import static com.rackspace.salus.test.JsonTestUtils.readContent;
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -28,14 +26,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.rackspace.salus.telemetry.etcd.services.WorkAllocationPartitionService;
 import com.rackspace.salus.telemetry.etcd.types.KeyRange;
-import com.rackspace.salus.telemetry.etcd.types.WorkAllocationRealm;
+import com.rackspace.salus.telemetry.etcd.workpart.WorkAllocator;
 import com.rackspace.salus.telemetry.presence_monitor.web.controller.PresenceMonitorApiController;
+import com.rackspace.salus.test.WebTestUtils;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
@@ -58,10 +56,13 @@ public class PresenceMonitorApiControllerTest {
   @MockBean
   WorkAllocationPartitionService workAllocationPartitionService;
 
+  @MockBean
+  WorkAllocator workAllocator;
+
   @Test
   public void testGetPartitions() throws Exception {
 
-    when(workAllocationPartitionService.getPartitions(any()))
+    when(workAllocationPartitionService.getPartitions())
         .thenReturn(CompletableFuture.completedFuture(
             Arrays.asList(
                 new KeyRange().setStart("0").setEnd("1"),
@@ -84,17 +85,17 @@ public class PresenceMonitorApiControllerTest {
         .andExpect(content().json(
             readContent("PresenceMonitorApiControllerTest/testGetPartitions.json"), true));
 
-    verify(workAllocationPartitionService).getPartitions(WorkAllocationRealm.PRESENCE_MONITOR);
+    verify(workAllocationPartitionService).getPartitions();
     verifyNoMoreInteractions(workAllocationPartitionService);
   }
 
   @Test
   public void testChangePartitions() throws Exception {
-    when(workAllocationPartitionService.changePartitions(any(), anyInt()))
+    when(workAllocationPartitionService.changePartitions(anyInt()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final MvcResult result = mvc.perform(put("/api/admin/presence-monitor/partitions")
-        .content("10")
+        .content("{\"count\":10}")
         .contentType(MediaType.APPLICATION_JSON))
         .andExpect(request().asyncStarted())
         .andReturn();
@@ -104,13 +105,13 @@ public class PresenceMonitorApiControllerTest {
         .andExpect(status().isOk())
         .andExpect(content().json("{\"success\": true}"));
 
-    verify(workAllocationPartitionService).changePartitions(WorkAllocationRealm.PRESENCE_MONITOR, 10);
+    verify(workAllocationPartitionService).changePartitions(10);
     verifyNoMoreInteractions(workAllocationPartitionService);
   }
 
   @Test
   public void testChangePartitionsNoValueSet() throws Exception {
-    when(workAllocationPartitionService.changePartitions(any(), anyInt()))
+    when(workAllocationPartitionService.changePartitions(anyInt()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
     mvc.perform(put("/api/admin/presence-monitor/partitions")
@@ -123,18 +124,13 @@ public class PresenceMonitorApiControllerTest {
 
   @Test
   public void testChangePartitionsIllegalArgument() throws Exception {
-    final String errorMsg = "partition count must be greater than zero";
-    when(workAllocationPartitionService.changePartitions(any(), anyInt()))
-        .thenThrow(new IllegalArgumentException(errorMsg));
-
     mvc.perform(put("/api/admin/presence-monitor/partitions")
-        .content("-8")
+        .content("{\"count\":-8}")
         .contentType(MediaType.APPLICATION_JSON))
         .andDo(print())
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message", is(errorMsg)));
+        .andExpect(WebTestUtils.validationError("count", "must be greater than or equal to 1"));
 
-    verify(workAllocationPartitionService).changePartitions(WorkAllocationRealm.PRESENCE_MONITOR, -8);
     verifyNoMoreInteractions(workAllocationPartitionService);
   }
 }
