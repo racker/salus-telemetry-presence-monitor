@@ -16,8 +16,10 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
+import com.rackspace.salus.common.errors.RuntimeKafkaException;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
+import java.util.concurrent.ExecutionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,12 @@ public class KafkaEgress {
         if (topic == null) {
             throw new IllegalArgumentException(String.format("No topic configured for %s", messageType));
         }
-        kafkaTemplate.send(topic, tenantId, payload);
+        try {
+            kafkaTemplate.send(topic, tenantId, payload).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeKafkaException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeKafkaException(e);
+        }
     }
 }
