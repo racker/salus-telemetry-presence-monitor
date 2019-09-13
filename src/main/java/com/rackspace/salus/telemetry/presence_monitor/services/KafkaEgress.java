@@ -54,9 +54,7 @@ public class KafkaEgress {
         }
         try {
             kafkaTemplate.send(topic, tenantId, payload).get();
-        } catch (InterruptedException e) {
-            throw new RuntimeKafkaException(e);
-        } catch (ExecutionException e) {
+        } catch (InterruptedException|ExecutionException e) {
             throw new RuntimeKafkaException(e);
         }
     }
