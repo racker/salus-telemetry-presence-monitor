@@ -37,13 +37,7 @@ public class RestExceptionHandler extends
   public RestExceptionHandler(ErrorAttributes errorAttributes) {
     super(errorAttributes);
   }
-
-  @ExceptionHandler({IllegalArgumentException.class})
-  public ResponseEntity<?> handleBadRequest(
-      HttpServletRequest request) {
-    return respondWith(request, HttpStatus.BAD_REQUEST);
-  }
-
+  
   @ExceptionHandler({JDBCException.class})
   public ResponseEntity<?> handleJDBCException(
       HttpServletRequest request) {
