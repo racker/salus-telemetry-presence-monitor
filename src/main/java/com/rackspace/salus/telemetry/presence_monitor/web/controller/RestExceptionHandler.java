@@ -37,16 +37,10 @@ public class RestExceptionHandler extends
   public RestExceptionHandler(ErrorAttributes errorAttributes) {
     super(errorAttributes);
   }
-  
+
   @ExceptionHandler({JDBCException.class})
   public ResponseEntity<?> handleJDBCException(
       HttpServletRequest request) {
     return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.jdbcExceptionMessage);
-  }
-
-  @ExceptionHandler({RuntimeKafkaException.class})
-  public ResponseEntity<?> handleKafkaExceptions(
-      HttpServletRequest request) {
-    return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.kafkaExceptionMessage);
   }
 }
