@@ -17,7 +17,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.web.controller;
 
 import com.rackspace.salus.common.errors.ResponseMessages;
-import com.rackspace.salus.common.errors.RuntimeKafkaException;
 import javax.servlet.http.HttpServletRequest;
 import org.hibernate.JDBCException;
 import org.springframework.beans.factory.annotation.Autowired;
