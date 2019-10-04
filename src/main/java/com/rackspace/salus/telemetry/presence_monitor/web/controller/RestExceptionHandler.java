@@ -17,7 +17,6 @@
 package com.rackspace.salus.telemetry.presence_monitor.web.controller;
 
 import com.rackspace.salus.common.errors.ResponseMessages;
-import com.rackspace.salus.common.errors.RuntimeKafkaException;
 import javax.servlet.http.HttpServletRequest;
 import org.hibernate.JDBCException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,21 +37,9 @@ public class RestExceptionHandler extends
     super(errorAttributes);
   }
 
-  @ExceptionHandler({IllegalArgumentException.class})
-  public ResponseEntity<?> handleBadRequest(
-      HttpServletRequest request) {
-    return respondWith(request, HttpStatus.BAD_REQUEST);
-  }
-
   @ExceptionHandler({JDBCException.class})
   public ResponseEntity<?> handleJDBCException(
       HttpServletRequest request) {
     return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.jdbcExceptionMessage);
-  }
-
-  @ExceptionHandler({RuntimeKafkaException.class})
-  public ResponseEntity<?> handleKafkaExceptions(
-      HttpServletRequest request) {
-    return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.kafkaExceptionMessage);
   }
 }
