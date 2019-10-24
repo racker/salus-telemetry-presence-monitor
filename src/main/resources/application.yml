@@ -21,6 +21,8 @@ spring:
   jackson:
     mapper:
       default-view-inclusion: true
+  application:
+    name: salus-telemetry-presence-monitor
 management:
   metrics:
     export:
