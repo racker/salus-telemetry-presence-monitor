@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2019 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
 import com.rackspace.salus.telemetry.etcd.workpart.Bits;
 import com.rackspace.salus.telemetry.etcd.workpart.WorkProcessor;
+import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
@@ -222,6 +223,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                     expectedEntry = partitionSlice.getExpectedTable().get(eventKey);
                     if (expectedEntry.getActive() != activeValue) {
                         expectedEntry.setActive(activeValue);
+                        metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
                     }
                     // Update resource info if we have it
                     if (activeValue) {
@@ -244,6 +246,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                     expectedEntry.setResourceInfo(resourceInfo);
                     expectedEntry.setActive(activeValue);
                     partitionSlice.getExpectedTable().put(eventKey, expectedEntry);
+                    metricExporter.getMetricRouter().route(expectedEntry, KafkaMessageType.EVENT);
                 }
             });
 
