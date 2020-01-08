@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Rackspace US, Inc.
+ * Copyright 2020 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,7 +245,6 @@ public class PresenceMonitorProcessorTest {
                 partitionSlice.getExpectedTable().get(activeId).getActive(), true);
         assertEquals(activeResourceInfo,
                 partitionSlice.getExpectedTable().get(activeId).getResourceInfo());
-        verify(metricRouter).route(partitionSlice.getExpectedTable().get(activeId), KafkaMessageType.EVENT);
 
         // Now delete active entry and see it go inactive
         client.getKVClient().delete(EtcdUtils.fromString("/resources/active/" + activeId));
