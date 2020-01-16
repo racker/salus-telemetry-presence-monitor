@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Rackspace US, Inc.
+ * Copyright 2020 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.hibernate.JDBCException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.error.ErrorAttributes;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -39,7 +40,11 @@ public class RestExceptionHandler extends
 
   @ExceptionHandler({JDBCException.class})
   public ResponseEntity<?> handleJDBCException(
-      HttpServletRequest request) {
-    return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.jdbcExceptionMessage);
+      HttpServletRequest request, Exception e) {
+    if (e instanceof DataIntegrityViolationException) {
+      return respondWith(request, HttpStatus.BAD_REQUEST, e.getMessage());
+    } else {
+      return respondWith(request, HttpStatus.SERVICE_UNAVAILABLE, ResponseMessages.jdbcExceptionMessage);
+    }
   }
 }
