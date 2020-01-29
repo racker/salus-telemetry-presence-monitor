@@ -8,3 +8,8 @@ server:
 logging:
   level:
     com.rackspace.salus: debug
+spring:
+  kafka:
+    listener:
+      # this will allow for us to start consumer of a particular topic before the producer
+      missing-topics-fatal: false
