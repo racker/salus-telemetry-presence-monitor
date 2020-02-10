@@ -1,4 +1,13 @@
 salus:
+  common:
+    roles:
+      role-to-view:
+        # An anonymous role is used for unauthenticated requests.
+        # i.e. internal service-to-service requests.
+        ROLE_ANONYMOUS: ADMIN
+        ROLE_CUSTOMER: PUBLIC
+        ROLE_EMPLOYEE: INTERNAL
+        ROLE_ENGINEER: ADMIN
   etcd:
     url: http://localhost:2479
   services:
