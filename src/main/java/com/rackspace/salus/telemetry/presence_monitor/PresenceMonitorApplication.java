@@ -18,6 +18,7 @@ package com.rackspace.salus.telemetry.presence_monitor;
 
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.util.DumpConfigProperties;
+import com.rackspace.salus.common.web.EnableRoleBasedJsonViews;
 import com.rackspace.salus.telemetry.etcd.EnableEtcd;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +31,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableSalusKafkaMessaging
 @EnableScheduling
 @EnableEtcd
+@EnableRoleBasedJsonViews
 public class PresenceMonitorApplication {
 
 	@Bean
