@@ -16,10 +16,8 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.web.controller;
 
-import com.fasterxml.jackson.annotation.JsonView;
 import com.rackspace.salus.telemetry.etcd.services.WorkAllocationPartitionService;
 import com.rackspace.salus.telemetry.etcd.types.KeyRange;
-import com.rackspace.salus.common.web.View;
 import com.rackspace.salus.telemetry.presence_monitor.web.model.ChangePartitionsRequest;
 import com.rackspace.salus.telemetry.presence_monitor.web.model.SuccessResult;
 import java.util.List;
