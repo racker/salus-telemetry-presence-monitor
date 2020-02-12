@@ -16,10 +16,8 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.web.controller;
 
-import com.fasterxml.jackson.annotation.JsonView;
 import com.rackspace.salus.telemetry.etcd.services.WorkAllocationPartitionService;
 import com.rackspace.salus.telemetry.etcd.types.KeyRange;
-import com.rackspace.salus.telemetry.model.View;
 import com.rackspace.salus.telemetry.presence_monitor.web.model.ChangePartitionsRequest;
 import com.rackspace.salus.telemetry.presence_monitor.web.model.SuccessResult;
 import java.util.List;
@@ -46,13 +44,11 @@ public class PresenceMonitorApiController {
   }
 
   @GetMapping("/admin/presence-monitor/partitions")
-  @JsonView(View.Admin.class)
   public CompletableFuture<List<KeyRange>> presenceMonitorPartitions() {
     return workAllocationPartitionService.getPartitions();
   }
 
   @PutMapping("/admin/presence-monitor/partitions")
-  @JsonView(View.Admin.class)
   public CompletableFuture<SuccessResult> changePartitions(@RequestBody @Valid
                                                                ChangePartitionsRequest request)
       throws IllegalArgumentException {
