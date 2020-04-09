@@ -51,8 +51,8 @@ steps:
       path: /root
 
   - id: DEPLOY
-    name: 'gcr.io/cloud-builders/mvn'
-    args: ['-B', 'deploy', '-s', '.mvn/settings.xml']
+    name: 'maven:3.6-jdk-11'
+    args: ['mvn', '-B', 'deploy', '-s', '.mvn/settings.xml']
     volumes:
     - name: user.home
       path: /root
