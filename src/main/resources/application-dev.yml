@@ -8,6 +8,7 @@ salus:
         ROLE_CUSTOMER: PUBLIC
         ROLE_EMPLOYEE: INTERNAL
         ROLE_ENGINEER: ADMIN
+        ROLE_IDENTITY_USER_ADMIN: PUBLIC
   etcd:
     url: http://localhost:2479
   services:
