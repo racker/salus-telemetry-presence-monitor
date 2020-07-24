@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Rackspace US, Inc.
+ * Copyright 2020 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 package com.rackspace.salus.telemetry.presence_monitor.config;
 
+import javax.validation.constraints.NotEmpty;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties("salus.services")
+@Validated
 @Component
 @Data
 public class ServicesProperties {
+  @NotEmpty
   String resourceManagementUrl;
 }

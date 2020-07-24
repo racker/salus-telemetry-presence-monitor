@@ -34,6 +34,7 @@ import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
+import com.rackspace.salus.telemetry.presence_monitor.config.RestClientsConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
@@ -47,9 +48,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -64,7 +63,9 @@ import org.springframework.test.context.junit4.SpringRunner;
 @RunWith(SpringRunner.class)
 @SpringBootTest(properties = {
     // allows for either ordering of consumer/producer startup during test setup
-    "spring.kafka.listener.missing-topics-fatal=false"
+    "spring.kafka.listener.missing-topics-fatal=false",
+    // not actually used, but needed for validation
+    "salus.services.resourceManagementUrl=http://localhost:0"
 })
 @EmbeddedKafka(partitions = 1, topics = {PresenceMonitorProcessorTest.TOPIC_METRICS})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -106,6 +107,9 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     private MetricRouter metricRouter;
 
+    @MockBean
+    RestClientsConfig restClientsConfig;
+
     @Autowired
     SimpleMeterRegistry simpleMeterRegistry;
 
@@ -139,14 +143,13 @@ public class PresenceMonitorProcessorTest {
     @Autowired
     private PresenceMonitorProperties presenceMonitorProperties;
 
-    @Mock
+    @MockBean
     ResourceApi resourceApi;
 
     @Autowired
     ConcurrentHashMap<String, PartitionSlice> partitionTable;
 
-    @Autowired
-    @Qualifier("resourceListener")
+    @MockBean
     ResourceListener resourceListener;
 
     @Before
