@@ -45,6 +45,7 @@ import java.util.function.BiConsumer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -127,6 +128,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         return ri;
     }
 
+    @Async // so that this processing is out-of-band from etcd event handler
     @Override
     public void start(String id, String content) {
         log.info("Starting work on id={}, content={}", id, content);
