@@ -19,10 +19,12 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
+import com.rackspace.salus.telemetry.entities.Resource;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 
+import com.rackspace.salus.telemetry.repositories.ResourceRepository;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -40,14 +42,14 @@ public class ResourceListener implements ConsumerSeekAware {
 
     private final String topic;
     private ConcurrentHashMap<String, PartitionSlice> partitionTable;
-    private final ResourceApi resourceApi;
+    private final ResourceRepository resourceRepository;
 
     @Autowired
     public ResourceListener(ConcurrentHashMap<String, PartitionSlice> partitionTable,
-                            KafkaTopicProperties kafkaTopicProperties, ResourceApi resourceApi) {
+                            KafkaTopicProperties kafkaTopicProperties, ResourceRepository resourceRepository) {
         this.partitionTable = partitionTable;
         this.topic = kafkaTopicProperties.getResources();
-        this.resourceApi = resourceApi;
+        this.resourceRepository = resourceRepository;
     }
 
     public String getTopic() {
@@ -57,7 +59,7 @@ public class ResourceListener implements ConsumerSeekAware {
     @KafkaListener(topics = "#{__listener.topic}")
     public void handleResourceEvent(ConsumerRecord<String, ResourceEvent> record) {
         ResourceEvent event = record.value();
-        ResourceDTO resource = resourceApi.getByResourceId(event.getTenantId(), event.getResourceId());
+        ResourceDTO resource = findResourceByTenantIdAndResourceId(event.getTenantId(), event.getResourceId());
         ResourceInfo rinfo = PresenceMonitorProcessor.convert(resource);
 
         String hash = PresenceMonitorProcessor.genExpectedId(event.getTenantId(), event.getResourceId());
@@ -109,5 +111,12 @@ public class ResourceListener implements ConsumerSeekAware {
     @Override
     public void onIdleContainer(Map<TopicPartition, Long> map, ConsumerSeekCallback consumerSeekCallback) {
         // do nothing
+    }
+
+    public ResourceDTO findResourceByTenantIdAndResourceId(String tenantId, String resourceId) {
+        Resource resource = resourceRepository.findByTenantIdAndResourceId(tenantId, resourceId)
+            .orElse(null);
+
+        return resource == null ? null : new ResourceDTO(resource, null);
     }
 }
