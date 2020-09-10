@@ -27,8 +27,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.messaging.EnableSalusKafkaMessaging;
 import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
-import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
+import com.rackspace.salus.telemetry.entities.Resource;
 import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
@@ -36,6 +36,7 @@ import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.config.RestClientsConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import com.rackspace.salus.telemetry.repositories.ResourceRepository;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.etcd.jetcd.watch.WatchResponse;
@@ -131,7 +132,9 @@ public class PresenceMonitorProcessorTest {
 
     private String activeResourceInfoString;
 
-    private ResourceDTO expectedResource;
+    private Resource expectedResource;
+
+    private ResourceDTO expectedResourceDto;
 
     private ResourceInfo expectedResourceInfo;
 
@@ -144,7 +147,7 @@ public class PresenceMonitorProcessorTest {
     private PresenceMonitorProperties presenceMonitorProperties;
 
     @MockBean
-    ResourceApi resourceApi;
+    ResourceRepository resourceRepository;
 
     @Autowired
     ConcurrentHashMap<String, PartitionSlice> partitionTable;
@@ -160,8 +163,9 @@ public class PresenceMonitorProcessorTest {
         taskScheduler.initialize();
 
         envoyResourceManagement = new EnvoyResourceManagement(client, objectMapper, hashing);
-        expectedResource = objectMapper.readValue(expectedResourceString, ResourceDTO.class);
-        expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResource);
+        expectedResource = objectMapper.readValue(expectedResourceString, Resource.class);
+        expectedResourceDto = new ResourceDTO(expectedResource, null);
+        expectedResourceInfo = PresenceMonitorProcessor.convert(expectedResourceDto);
         activeResourceInfoString = objectMapper.writeValueAsString(expectedResourceInfo).replace("X86_64", "X86_32");
 
         activeResourceInfo = objectMapper.readValue(activeResourceInfoString, ResourceInfo.class);
@@ -172,7 +176,7 @@ public class PresenceMonitorProcessorTest {
     public void testProcessorStart() throws Exception {
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
 
-        when(resourceApi.getExpectedEnvoys()).thenReturn(Collections.singletonList(expectedResource));
+        when(resourceRepository.findAllByPresenceMonitoringEnabled(true)).thenReturn(Collections.singletonList(expectedResource));
 
         Semaphore routerSem = new Semaphore(0);
         doAnswer((a) -> {
@@ -182,7 +186,7 @@ public class PresenceMonitorProcessorTest {
 
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                simpleMeterRegistry, resourceListener, partitionTable, resourceApi);
+                simpleMeterRegistry, resourceListener, partitionTable, resourceRepository);
 
         String expectedId = PresenceMonitorProcessor.genExpectedId(expectedResourceInfo.getTenantId(),
                 expectedResourceInfo.getResourceId());
@@ -219,7 +223,7 @@ public class PresenceMonitorProcessorTest {
         MetricExporter metricExporter = new MetricExporter(metricRouter, presenceMonitorProperties, simpleMeterRegistry);
         PresenceMonitorProcessor p = new PresenceMonitorProcessor(client, objectMapper,
                 envoyResourceManagement, taskScheduler, metricExporter,
-                new SimpleMeterRegistry(), resourceListener, partitionTable, resourceApi);
+                new SimpleMeterRegistry(), resourceListener, partitionTable, resourceRepository);
 
         // wrap active watch consumer to release a semaphore when done
         Semaphore activeSem = new Semaphore(0);
