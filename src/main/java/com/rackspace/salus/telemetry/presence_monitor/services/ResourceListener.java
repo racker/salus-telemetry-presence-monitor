@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Rackspace US, Inc.
+ * Copyright 2020 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,9 +114,8 @@ public class ResourceListener implements ConsumerSeekAware {
     }
 
     public ResourceDTO findResourceByTenantIdAndResourceId(String tenantId, String resourceId) {
-        Resource resource = resourceRepository.findByTenantIdAndResourceId(tenantId, resourceId)
+        return resourceRepository.findByTenantIdAndResourceId(tenantId, resourceId)
+            .map(resource -> new ResourceDTO(resource, null))
             .orElse(null);
-
-        return resource == null ? null : new ResourceDTO(resource, null);
     }
 }
