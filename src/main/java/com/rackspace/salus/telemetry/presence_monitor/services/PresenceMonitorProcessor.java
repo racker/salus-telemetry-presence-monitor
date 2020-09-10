@@ -20,7 +20,6 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.common.util.KeyHashing;
-import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
 import com.rackspace.salus.telemetry.etcd.types.Keys;
@@ -29,6 +28,7 @@ import com.rackspace.salus.telemetry.etcd.workpart.WorkProcessor;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionWatcher;
+import com.rackspace.salus.telemetry.repositories.ResourceRepository;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.kv.GetResponse;
@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,8 +67,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private final Counter updatedWork;
     private final Counter stoppedWork;
     private static KeyHashing hashing = new KeyHashing();
-    private final ResourceApi resourceApi;
     private final ResourceListener resourceListener;
+    private final ResourceRepository resourceRepository;
 
     @Autowired
     PresenceMonitorProcessor(Client etcd, ObjectMapper objectMapper,
@@ -75,7 +76,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
                              ThreadPoolTaskScheduler taskScheduler, MetricExporter metricExporter,
                              MeterRegistry meterRegistry, ResourceListener resourceListener,
                              ConcurrentHashMap<String, PartitionSlice> partitionTable,
-                             ResourceApi resourceApi) {
+                             ResourceRepository resourceRepository) {
         this.meterRegistry = meterRegistry;
         this.resourceListener = resourceListener;
         this.partitionTable = partitionTable;
@@ -84,9 +85,8 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.envoyResourceManagement = envoyResourceManagement;
         this.taskScheduler = taskScheduler;
         this.metricExporter = metricExporter;
-        this.resourceApi = resourceApi;
+        this.resourceRepository = resourceRepository;
         this.metricExporter.setPartitionTable(partitionTable);
-
 
         startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
         updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
@@ -113,7 +113,7 @@ public class PresenceMonitorProcessor implements WorkProcessor {
     private List<ResourceDTO> getResources() {
         // Stop the resourceListener while reading from the resource manager
         synchronized (resourceListener) {
-            return resourceApi.getExpectedEnvoys();
+            return getExpectedEnvoys();
         }
     }
 
@@ -272,5 +272,11 @@ public class PresenceMonitorProcessor implements WorkProcessor {
 
     public ConcurrentHashMap<String, PartitionSlice> getPartitionTable() {
         return partitionTable;
+    }
+
+    public List<ResourceDTO> getExpectedEnvoys() {
+        return resourceRepository.findAllByPresenceMonitoringEnabled(true)
+            .stream().map(resource -> new ResourceDTO(resource, null))
+            .collect(Collectors.toList());
     }
 }

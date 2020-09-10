@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Rackspace US, Inc.
+ * Copyright 2020 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,11 @@ import com.rackspace.salus.common.messaging.KafkaTopicProperties;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.resource_management.web.client.ResourceApi;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
+import com.rackspace.salus.telemetry.entities.Resource;
 import com.rackspace.salus.telemetry.messaging.ResourceEvent;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
+import com.rackspace.salus.telemetry.repositories.ResourceRepository;
+import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,7 +46,7 @@ public class ResourceListenerTest {
     private static String sliceKey = "id1";
 
     @Mock
-    ResourceApi resourceApi;
+    ResourceRepository resourceRepository;
 
     private static ConcurrentHashMap<String, PartitionSlice>
             partitionTable;
@@ -60,7 +63,7 @@ public class ResourceListenerTest {
 
     private ResourceEvent resourceEvent = new ResourceEvent();
 
-    private ResourceDTO resource, updatedResource;
+    private Resource resource, updatedResource;
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @Before
@@ -72,8 +75,8 @@ public class ResourceListenerTest {
         slice.setRangeMin(rangeStart);
         slice.setRangeMax(rangeEnd);
         partitionTable.put(sliceKey, slice);
-        resource = objectMapper.readValue(resourceString, ResourceDTO.class);
-        updatedResource = objectMapper.readValue(updatedResourceString, ResourceDTO.class);
+        resource = objectMapper.readValue(resourceString, Resource.class);
+        updatedResource = objectMapper.readValue(updatedResourceString, Resource.class);
         resourceEvent.setResourceId(resourceId).setTenantId(tenantId);
     }
 
@@ -82,24 +85,28 @@ public class ResourceListenerTest {
         String key = String.format("%s:%s", tenantId, resourceId);
         String hash = hashing.hash(key);
 
-        ResourceListener rl = new ResourceListener(partitionTable, new KafkaTopicProperties(), resourceApi);
+        ResourceListener rl = new ResourceListener(partitionTable, new KafkaTopicProperties(), resourceRepository);
         ConsumerRecord<String, ResourceEvent> cr = new ConsumerRecord<>("http://dummy", 0, 0, key, resourceEvent);
         assertNull("Confirm no entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
 
         // send the initial message
-        when(resourceApi.getByResourceId(any(), any())).thenReturn(resource);
+        when(resourceRepository.findByTenantIdAndResourceId(any(), any())).thenReturn(Optional.of(resource));
         rl.handleResourceEvent(cr);
         PartitionSlice.ExpectedEntry entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
-        assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(resource));
+        assertEquals("Confirm new entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(
+            rl.findResourceByTenantIdAndResourceId(resource.getTenantId(),
+                resource.getResourceId())));
 
         // send a resource event due to an update to the resource
-        when(resourceApi.getByResourceId(any(), any())).thenReturn(updatedResource);
+        when(resourceRepository.findByTenantIdAndResourceId(any(), any())).thenReturn(Optional.of(updatedResource));
         rl.handleResourceEvent(cr);
         entry = partitionTable.get(sliceKey).getExpectedTable().get(hash);
-        assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor.convert(updatedResource));
+        assertEquals("Confirm updated entry", entry.getResourceInfo(), PresenceMonitorProcessor
+            .convert(rl.findResourceByTenantIdAndResourceId(resource.getTenantId(),
+                resource.getResourceId())));
 
         // Throwing not found exception should be interpreted as the resource should be deleted
-        when(resourceApi.getByResourceId(any(), any())).thenReturn(null);
+        when(resourceRepository.findByTenantIdAndResourceId(any(), any())).thenReturn(Optional.empty());
         rl.handleResourceEvent(cr);
         assertNull("Confirm deleted entry", partitionTable.get(sliceKey).getExpectedTable().get(hash));
     }
