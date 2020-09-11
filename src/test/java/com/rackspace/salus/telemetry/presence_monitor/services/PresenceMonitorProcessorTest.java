@@ -35,6 +35,7 @@ import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.config.RestClientsConfig;
+import com.rackspace.salus.telemetry.presence_monitor.services.PresenceMonitorProcessorTest.TestConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.repositories.ResourceRepository;
 import io.etcd.jetcd.Client;
@@ -51,15 +52,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
@@ -72,14 +72,18 @@ import org.springframework.test.context.junit4.SpringRunner;
 @EmbeddedKafka(partitions = 1, topics = {PresenceMonitorProcessorTest.TOPIC_METRICS})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @EnableSalusKafkaMessaging
-@Import({SimpleMeterRegistry.class})
-@ActiveProfiles("dev")
+@Import({
+    SimpleMeterRegistry.class,
+    TestConfig.class,
+    KeyHashing.class,
+    PresenceMonitorProperties.class,
+})
 public class PresenceMonitorProcessorTest {
 
     public static final String TOPIC_METRICS = "test.metrics.json";
 
     // Declare our own unit test Spring config, which is merged with the main app config.
-    @TestConfiguration
+    @Configuration
     public static class TestConfig {
 
         // Adjust our standard topic properties to point metrics at our test topic
@@ -151,8 +155,7 @@ public class PresenceMonitorProcessorTest {
     @MockBean
     ResourceRepository resourceRepository;
 
-    @Autowired
-    ConcurrentHashMap<String, PartitionSlice> partitionTable;
+    ConcurrentHashMap<String, PartitionSlice> partitionTable = new ConcurrentHashMap<>();
 
     @MockBean
     ResourceListener resourceListener;
