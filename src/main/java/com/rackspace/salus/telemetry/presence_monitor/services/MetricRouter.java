@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.monplat.protocol.AccountType;
 import com.rackspace.monplat.protocol.ExternalMetric;
 import com.rackspace.monplat.protocol.MonitoringSystem;
+import com.rackspace.salus.common.config.MetricTags;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
@@ -52,7 +53,8 @@ public class MetricRouter {
     private final Client etcd;
     private final ObjectMapper objectMapper;
     private final TimestampProvider timestampProvider;
-    private final Counter metricSent;
+    MeterRegistry meterRegistry;
+    private final Counter.Builder metricSent;
 
     @Autowired
     public MetricRouter(EncoderFactory avroEncoderFactory, KafkaEgress kafkaEgress, Client etcd,
@@ -64,7 +66,8 @@ public class MetricRouter {
         this.timestampProvider = timestampProvider;
         universalTimestampFormatter = DateTimeFormatter.ISO_INSTANT;
 
-        metricSent = meterRegistry.counter("metricSent");
+        this.meterRegistry = meterRegistry;
+        metricSent = Counter.builder("metricSent").tag(MetricTags.SERVICE_METRIC_TAG,"MetricRouter");
     }
 
     public void route(PartitionSlice.ExpectedEntry expectedEntry, KafkaMessageType type) {
@@ -114,7 +117,7 @@ public class MetricRouter {
             datumWriter.write(externalMetric, jsonEncoder);
             jsonEncoder.flush();
 
-            metricSent.increment();
+            metricSent.tags(MetricTags.OPERATION_METRIC_TAG,"route",MetricTags.OBJECT_TYPE_METRIC_TAG,"metric").register(meterRegistry).increment();
             kafkaEgress.send(resourceInfo.getTenantId(), type, out.toString(StandardCharsets.UTF_8.name()));
 
         } catch (IOException e) {

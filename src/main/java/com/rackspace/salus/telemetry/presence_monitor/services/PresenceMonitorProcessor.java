@@ -19,6 +19,7 @@ package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.salus.common.config.MetricTags;
 import com.rackspace.salus.common.util.KeyHashing;
 import com.rackspace.salus.resource_management.web.model.ResourceDTO;
 import com.rackspace.salus.telemetry.etcd.services.EnvoyResourceManagement;
@@ -88,9 +89,9 @@ public class PresenceMonitorProcessor implements WorkProcessor {
         this.resourceRepository = resourceRepository;
         this.metricExporter.setPartitionTable(partitionTable);
 
-        startedWork = meterRegistry.counter("workProcessorChange", "state", "started");
-        updatedWork = meterRegistry.counter("workProcessorChange", "state", "updated");
-        stoppedWork = meterRegistry.counter("workProcessorChange", "state", "stopped");
+        startedWork = meterRegistry.counter("workProcessorChange", MetricTags.SERVICE_METRIC_TAG, "PresenceMonitorProcessor", "state", "started");
+        updatedWork = meterRegistry.counter("workProcessorChange", MetricTags.SERVICE_METRIC_TAG, "PresenceMonitorProcessor", "state", "updated");
+        stoppedWork = meterRegistry.counter("workProcessorChange", MetricTags.SERVICE_METRIC_TAG, "PresenceMonitorProcessor", "state", "stopped");
         meterRegistry.gaugeMapSize("partitionSlices", Collections.emptyList(), partitionTable);
     }
 

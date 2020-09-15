@@ -34,6 +34,7 @@ import com.rackspace.salus.telemetry.etcd.types.KeyRange;
 import com.rackspace.salus.telemetry.etcd.workpart.WorkAllocator;
 import com.rackspace.salus.telemetry.presence_monitor.web.controller.PresenceMonitorApiController;
 import com.rackspace.salus.test.WebTestUtils;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
@@ -41,6 +42,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +51,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @RunWith(SpringRunner.class)
 @WebMvcTest(PresenceMonitorApiController.class)
+@Import({SimpleMeterRegistry.class})
 public class PresenceMonitorApiControllerTest {
   @Autowired
   MockMvc mvc;
