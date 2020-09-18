@@ -34,10 +34,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.io.EncoderFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,19 +84,8 @@ public class MetricRouter {
         }
         log.info("routing {}", resourceKey);
 
-        Map<String, Long> iMap = new HashMap<>();
         // This is the name of the agent health metric used in v1:
-        iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
         final String measurementName = "presence_monitor";
-
-        List<Metric> metrics = iMap.entrySet().stream()
-            .map(entry -> Metric.newBuilder()
-                .setGroup(measurementName)
-                .setTimestamp(getProtoBufTimestamp(timestampProvider.getCurrentInstant()))
-                .setName(entry.getKey())
-                .setInt(entry.getValue())
-                .putAllMetadata(Collections.emptyMap())
-                .build()).collect(Collectors.toList());
 
         final UniversalMetricFrame universalMetricFrame = UniversalMetricFrame.newBuilder()
             .setAccountType(UniversalMetricFrame.AccountType.MANAGED_HOSTING)
@@ -107,7 +93,13 @@ public class MetricRouter {
             .putAllDeviceMetadata(envoyLabels)
             .putAllSystemMetadata(systemMetadata)
             .setMonitoringSystem(UniversalMetricFrame.MonitoringSystem.SALUS)
-            .addAllMetrics(metrics)
+            .addMetrics(Metric.newBuilder()
+                .setGroup(measurementName)
+                .setTimestamp(getProtoBufTimestamp(timestampProvider.getCurrentInstant()))
+                .setName("connected")
+                .setInt(expectedEntry.getActive() ? 1L : 0L)
+                .putAllMetadata(Collections.emptyMap())
+                .build())
             .setDevice(resourceKey)
             .build();
 
