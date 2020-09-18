@@ -1,0 +1,19 @@
+{
+  "tenantId": "123456",
+  "accountType": "MANAGED_HOSTING",
+  "device": "123456:os:LINUX",
+  "deviceMetadata": {
+    "os": "LINUX",
+    "arch": "X86_32"
+  },
+  "monitoringSystem": "SALUS",
+  "systemMetadata": {
+    "envoyId": "abcde"
+  },
+  "metrics": [{
+    "timestamp": "1970-01-01T00:00:00Z",
+    "group": "presence_monitor",
+    "name": "connected",
+    "int": "1"
+  }]
+}
