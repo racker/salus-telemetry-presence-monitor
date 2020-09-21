@@ -28,6 +28,9 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.time.Instant;
 import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
@@ -38,7 +41,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.util.FileCopyUtils;
 
 @RunWith(SpringRunner.class)
 public class MetricRouterTest {
@@ -90,7 +95,7 @@ public class MetricRouterTest {
     }
 
     @Test
-    public void testRouteMetric() {
+    public void testRouteMetric() throws IOException {
         String envoyString = "{\"version\":\"1\", \"supportedAgents\":[\"TELEGRAF\"], \"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},  " +
                 "\"identifierName\":\"os\"}";
         client.getKVClient().put(
@@ -100,6 +105,12 @@ public class MetricRouterTest {
         metricRouter.route(expectedEntry, KafkaMessageType.METRIC);
 
         verify(kafkaEgress).send(eq("123456"), eq(KafkaMessageType.METRIC),
-                eq("{\"timestamp\":\"1970-01-01T00:00:00Z\",\"accountType\":\"RCN\",\"account\":\"123456\",\"device\":\"\",\"deviceLabel\":\"\",\"deviceMetadata\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"monitoringSystem\":\"SALUS\",\"systemMetadata\":{\"envoyId\":\"abcde\"},\"collectionName\":\"presence_monitor\",\"collectionLabel\":\"\",\"collectionTarget\":\"123456:os:LINUX\",\"collectionMetadata\":{},\"ivalues\":{\"connected\":1},\"fvalues\":{},\"svalues\":{},\"units\":{}}"));
+                eq(readContent("PresenceMonitorMetricRouterTest/testRouteMetric.json")));
      }
+
+    private static String readContent(String resource) throws IOException {
+        try (InputStream in = new ClassPathResource(resource).getInputStream()) {
+          return FileCopyUtils.copyToString(new InputStreamReader(in));
+      }
+    }
 }

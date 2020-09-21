@@ -19,9 +19,10 @@
 package com.rackspace.salus.telemetry.presence_monitor.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.monplat.protocol.AccountType;
-import com.rackspace.monplat.protocol.ExternalMetric;
-import com.rackspace.monplat.protocol.MonitoringSystem;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.JsonFormat;
+import com.rackspace.monplat.protocol.Metric;
+import com.rackspace.monplat.protocol.UniversalMetricFrame;
 import com.rackspace.salus.common.config.MetricTags;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
@@ -29,18 +30,13 @@ import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
-import org.apache.avro.specific.SpecificDatumWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -88,41 +84,40 @@ public class MetricRouter {
         }
         log.info("routing {}", resourceKey);
 
-        Map<String, Long> iMap = new HashMap<>();
         // This is the name of the agent health metric used in v1:
-        iMap.put("connected", expectedEntry.getActive() ? 1L : 0L);
+        final String measurementName = "presence_monitor";
 
-        final ExternalMetric externalMetric = ExternalMetric.newBuilder()
-            .setAccountType(AccountType.RCN)
-            .setAccount(resourceInfo.getTenantId())
-            .setTimestamp(universalTimestampFormatter.format(timestampProvider.getCurrentInstant()))
-            .setDeviceMetadata(envoyLabels)
-            .setCollectionMetadata(Collections.emptyMap())
-            .setMonitoringSystem(MonitoringSystem.SALUS)
-            .setSystemMetadata(systemMetadata)
-            .setCollectionTarget(resourceKey)
-            .setCollectionName("presence_monitor")
-            .setFvalues(Collections.emptyMap())
-            .setSvalues(Collections.emptyMap())
-            .setIvalues(iMap)
-            .setUnits(Collections.emptyMap())
+        final UniversalMetricFrame universalMetricFrame = UniversalMetricFrame.newBuilder()
+            .setAccountType(UniversalMetricFrame.AccountType.MANAGED_HOSTING)
+            .setTenantId(tenantId)
+            .putAllDeviceMetadata(envoyLabels)
+            .putAllSystemMetadata(systemMetadata)
+            .setMonitoringSystem(UniversalMetricFrame.MonitoringSystem.SALUS)
+            .addMetrics(Metric.newBuilder()
+                .setGroup(measurementName)
+                .setTimestamp(getProtoBufTimestamp(timestampProvider.getCurrentInstant()))
+                .setName("connected")
+                .setInt(expectedEntry.getActive() ? 1L : 0L)
+                .putAllMetadata(Collections.emptyMap())
+                .build())
+            .setDevice(resourceKey)
             .build();
 
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            final Schema schema = externalMetric.getSchema();
-            final JsonEncoder jsonEncoder = avroEncoderFactory.jsonEncoder(schema, out);
-
-            final SpecificDatumWriter<Object> datumWriter = new SpecificDatumWriter<>(schema);
-            datumWriter.write(externalMetric, jsonEncoder);
-            jsonEncoder.flush();
-
-            metricSent.tags(MetricTags.OPERATION_METRIC_TAG,"route",MetricTags.OBJECT_TYPE_METRIC_TAG,"metric").register(meterRegistry).increment();
-            kafkaEgress.send(resourceInfo.getTenantId(), type, out.toString(StandardCharsets.UTF_8.name()));
-
+            metricSent
+                .tags(MetricTags.OPERATION_METRIC_TAG, "route", MetricTags.OBJECT_TYPE_METRIC_TAG,
+                    "metric").register(meterRegistry).increment();
+            kafkaEgress.send(resourceInfo.getTenantId(), type,
+                JsonFormat.printer().print(universalMetricFrame));
         } catch (IOException e) {
-            log.warn("Failed to Avro encode avroMetric={} original={}", externalMetric, resourceInfo, e);
-            throw new RuntimeException("Failed to Avro encode metric", e);
+            log.warn("Failed to encode metricFrame={} from={}", universalMetricFrame,
+                resourceInfo, e);
+            throw new RuntimeException("Failed to encode metric", e);
         }
+    }
+
+    private Timestamp getProtoBufTimestamp(Instant timestamp) {
+        return Timestamp.newBuilder().setSeconds(timestamp.getEpochSecond())
+            .setNanos(timestamp.getNano()).build();
     }
 }
