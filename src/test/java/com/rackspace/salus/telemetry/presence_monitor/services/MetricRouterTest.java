@@ -88,7 +88,7 @@ public class MetricRouterTest {
 
       metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry(), timestampProvider);
         String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"resourceId\":\"os:LINUX\"," +
-                "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
+                "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoy_id\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
         expectedEntry = objectMapper.readValue(expectedEntryString, PartitionSlice.ExpectedEntry.class);
 

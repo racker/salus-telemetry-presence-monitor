@@ -80,7 +80,7 @@ public class MetricRouter {
         if (envoyId == null) {
             systemMetadata = Collections.emptyMap();
         } else {
-            systemMetadata = Collections.singletonMap("envoyId", envoyId);
+            systemMetadata = Collections.singletonMap("envoy_id", envoyId);
         }
         log.info("routing {}", resourceKey);
 
