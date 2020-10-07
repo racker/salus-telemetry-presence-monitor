@@ -72,7 +72,7 @@ public class MetricRouterTest {
     private MetricRouter metricRouter;
 
     @Autowired
-            EncoderFactory encoderFactory;
+    EncoderFactory encoderFactory;
 
     private Client client;
 
