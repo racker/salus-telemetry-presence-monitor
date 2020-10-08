@@ -88,7 +88,6 @@ public class MetricRouter {
             systemMetadata.put("resource_id", resourceInfo.getResourceId());
             // set supplementary values to assist with downstream metric processing
             systemMetadata.put("monitor_type", MonitorType.presence.toString());
-            systemMetadata.put("monitor_selector_scope", "local");
         }
         log.info("routing {}", resourceKey);
 
