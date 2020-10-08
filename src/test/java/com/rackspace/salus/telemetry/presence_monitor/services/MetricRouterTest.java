@@ -24,9 +24,9 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.etcd.EtcdClusterResource;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,7 +80,7 @@ public class MetricRouterTest {
     @Before
     public void setUp() throws Exception {
       client = io.etcd.jetcd.Client.builder().endpoints(
-          etcd.cluster().getClientEndpoints()
+          etcd.getClientEndpoints()
       ).build();
 
       when(timestampProvider.getCurrentInstant())
@@ -88,7 +88,7 @@ public class MetricRouterTest {
 
       metricRouter = new MetricRouter(encoderFactory, kafkaEgress, client, objectMapper, new SimpleMeterRegistry(), timestampProvider);
         String expectedEntryString = "{\"active\": true, \"resourceInfo\":{\"resourceId\":\"os:LINUX\"," +
-                "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoy_id\":\"abcde\"," +
+                "\"labels\":{\"os\":\"LINUX\",\"arch\":\"X86_32\"},\"envoyId\":\"abcde\"," +
                 "\"tenantId\":\"123456\",\"address\":\"host:1234\"}}";
         expectedEntry = objectMapper.readValue(expectedEntryString, PartitionSlice.ExpectedEntry.class);
 

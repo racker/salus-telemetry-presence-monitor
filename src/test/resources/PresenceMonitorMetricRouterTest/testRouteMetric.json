@@ -8,7 +8,10 @@
   },
   "monitoringSystem": "SALUS",
   "systemMetadata": {
-    "envoy_id": "abcde"
+    "envoy_id": "abcde",
+    "resource_id": "os:LINUX",
+    "monitor_type": "presence",
+    "monitor_selector_scope": "local"
   },
   "metrics": [{
     "timestamp": "1970-01-01T00:00:00Z",
