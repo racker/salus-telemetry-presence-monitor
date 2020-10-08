@@ -35,7 +35,7 @@
   </parent>
 
   <properties>
-    <jetcd.version>0.3.0</jetcd.version>
+    <jetcd.version>0.5.3</jetcd.version>
   </properties>
 
   <dependencies>
@@ -111,6 +111,13 @@
       <artifactId>jetcd-launcher</artifactId>
       <version>${jetcd.version}</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <!-- a newer version is pulled in from salus-test -->
+          <artifactId>testcontainers</artifactId>
+          <groupId>org.testcontainers</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
