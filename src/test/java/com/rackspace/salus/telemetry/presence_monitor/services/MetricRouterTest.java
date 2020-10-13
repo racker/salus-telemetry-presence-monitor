@@ -24,9 +24,9 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.salus.telemetry.etcd.EtcdUtils;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
+import com.rackspace.salus.telemetry.presence_monitor.etcd.EtcdClusterResource;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,7 +72,7 @@ public class MetricRouterTest {
     private MetricRouter metricRouter;
 
     @Autowired
-            EncoderFactory encoderFactory;
+    EncoderFactory encoderFactory;
 
     private Client client;
 
@@ -80,7 +80,7 @@ public class MetricRouterTest {
     @Before
     public void setUp() throws Exception {
       client = io.etcd.jetcd.Client.builder().endpoints(
-          etcd.cluster().getClientEndpoints()
+          etcd.getClientEndpoints()
       ).build();
 
       when(timestampProvider.getCurrentInstant())

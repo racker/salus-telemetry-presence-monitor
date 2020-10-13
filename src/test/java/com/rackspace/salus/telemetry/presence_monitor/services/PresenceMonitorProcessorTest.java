@@ -35,11 +35,11 @@ import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.config.PresenceMonitorProperties;
 import com.rackspace.salus.telemetry.presence_monitor.config.RestClientsConfig;
+import com.rackspace.salus.telemetry.presence_monitor.etcd.EtcdClusterResource;
 import com.rackspace.salus.telemetry.presence_monitor.services.PresenceMonitorProcessorTest.TestConfig;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import com.rackspace.salus.telemetry.repositories.ResourceRepository;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.junit.EtcdClusterResource;
 import io.etcd.jetcd.watch.WatchResponse;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Collections;
@@ -98,7 +98,7 @@ public class PresenceMonitorProcessorTest {
         @Primary // Gives preference to this bean if other Client beans are configured
         public Client client() {
             return io.etcd.jetcd.Client.builder().endpoints(
-                etcd.cluster().getClientEndpoints()
+                etcd.getClientEndpoints()
             ).build();
         }
     }

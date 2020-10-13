@@ -25,6 +25,7 @@ import com.rackspace.monplat.protocol.Metric;
 import com.rackspace.monplat.protocol.UniversalMetricFrame;
 import com.rackspace.salus.common.config.MetricTags;
 import com.rackspace.salus.telemetry.messaging.KafkaMessageType;
+import com.rackspace.salus.telemetry.model.MonitorType;
 import com.rackspace.salus.telemetry.model.ResourceInfo;
 import com.rackspace.salus.telemetry.presence_monitor.types.PartitionSlice;
 import io.etcd.jetcd.Client;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.io.EncoderFactory;
@@ -80,7 +82,12 @@ public class MetricRouter {
         if (envoyId == null) {
             systemMetadata = Collections.emptyMap();
         } else {
-            systemMetadata = Collections.singletonMap("envoyId", envoyId);
+            // use LinkedHashMap to assist with testing (maintains order)
+            systemMetadata = new LinkedHashMap<>();
+            systemMetadata.put("envoy_id", envoyId);
+            systemMetadata.put("resource_id", resourceInfo.getResourceId());
+            // set supplementary values to assist with downstream metric processing
+            systemMetadata.put("monitor_type", MonitorType.presence.toString());
         }
         log.info("routing {}", resourceKey);
 
